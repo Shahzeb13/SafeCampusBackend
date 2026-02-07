@@ -10,7 +10,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+import cookieParser from "cookie-parser";
+app.use(cookieParser());
+
 /* ---------- ROUTES ---------- */
+import authRoutes from "./Routes/authRoutes.js";
+app.use("/api/auth", authRoutes);
+
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -24,4 +30,3 @@ app.listen(PORT, () => {
 });
 
 
-console.log("Server ")
