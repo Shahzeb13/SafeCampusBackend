@@ -1,7 +1,9 @@
 // server.ts
+import dotenv from 'dotenv'
+dotenv.config();
 import express, { type Request, type Response } from "express";
 import cors from "cors";
-
+import authRoutes from "./Routes/authRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -11,10 +13,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 import cookieParser from "cookie-parser";
+import { connectToMongoDB } from './Database/connectToDatabase.js';
 app.use(cookieParser());
-
+await connectToMongoDB()
 /* ---------- ROUTES ---------- */
-import authRoutes from "./Routes/authRoutes.js";
+
 app.use("/api/auth", authRoutes);
 
 app.get("/", (req: Request, res: Response) => {
@@ -26,7 +29,7 @@ app.get("/", (req: Request, res: Response) => {
 
 /* ---------- START SERVER ---------- */
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
 
 

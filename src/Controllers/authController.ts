@@ -1,20 +1,28 @@
 
 import { Request, Response } from "express";
-import UserModal from "../Modals/userModal.js";
+import UserModal, { User } from "../Modals/userModal.js";
 import generateToken from "../Utils/generateToken.js";
 import bcrypt from "bcrypt";
+import { encryptPassword } from "../Utils/hashPassword.js";
+import { IsUserReqObjectValid } from "../Types/TypePredicates/isUserReqObjectValid.js";
 
-// Extend Request interface locally for TypeScript (if not globally declared)
-interface AuthRequest extends Request {
-    user?: any;
-}
 
-// @desc    Register a new user
-// @route   POST /api/users/register
-// @access  Public
-export const registerUser = async (req: Request, res: Response): Promise<void> => {
+
+export const registerUser = async (req: Request, res: Response):Promise<Response | void>  => {
+    console.log("User Registration Route hit");
     try {
-        const { username, email, password, role } = req.body;
+        // const  body : User = req.body
+        const body = req.body;
+        const isBodyValid = IsUserReqObjectValid(body);  
+        if (!isBodyValid) {
+             return res.status(400).json({success: false, message: "Dear Client ,You are sending Invalid data. "})
+             
+        };
+        
+
+
+        
+        const { username, email, password, role, avatar } = body;
 
         const userExists = await UserModal.findOne({ email });
 
@@ -23,15 +31,16 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
+        const hashedPassword = await encryptPassword(password);
+        if (hashedPassword !== null) {
+            console.log("Password Hashed Successfully", hashedPassword)
+        }
         const user = await UserModal.create({
             username,
             email,
             password: hashedPassword,
-            role
+            role,
+            avatar
         });
 
         if (user) {
@@ -41,7 +50,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
                 httpOnly: true,
                 secure: process.env.NODE_ENV !== "development", // Use secure cookies in production
                 sameSite: "strict", // Prevent CSRF attacks
-                maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+                maxAge: 60 * 60 * 1000 // 30 days
             });
 
             res.status(201).json({
@@ -52,7 +61,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
                 token: token,
             });
         } else {
-            res.status(400).json({ message: "Invalid user data" });
+            res.status(400).json({ message: "User Does not Exist" });
         }
     } catch (error: any) {
         console.error("Error Registering User ", {
@@ -88,7 +97,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
-               
+
             });
         } else {
             res.status(401).json({ message: "Invalid email or password" });

@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+export interface User{
+    username : string ,
+    email: string,
+    password: string,
+    role: string,
+    avatar: string | null
+}
+
+
+
 
 const userSchema = new mongoose.Schema({
     username : {type : String , required: true , trim : true , toLowercase: true},
@@ -12,6 +22,6 @@ const userSchema = new mongoose.Schema({
 
 
 
-const UserModal = mongoose.model("User" , userSchema);
+const UserModal = mongoose.model<User>("User" , userSchema);
 
 export default UserModal;
