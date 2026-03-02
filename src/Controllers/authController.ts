@@ -4,7 +4,7 @@ import UserModal, { User } from "../Modals/userModal.js";
 import generateToken from "../Utils/generateToken.js";
 import bcrypt from "bcrypt";
 import { encryptPassword } from "../Utils/hashPassword.js";
-import { IsUserReqObjectValid } from "../Types/TypePredicates/isUserReqObjectValid.js";
+import {  isValidUserRegistrationRequest } from "../Types/TypePredicates/isValidUserRegistrationRequest.js";
 import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
 
 
@@ -12,9 +12,9 @@ import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
 export const registerUser = async (req: Request, res: Response): Promise<Response | void> => {
     console.log("User Registration Route hit");
     try {
-        // const  body : User = req.body
+        
         const body = req.body;
-        const isBodyValid = IsUserReqObjectValid(body);
+        const isBodyValid = isValidUserRegistrationRequest(body);
         if (!isBodyValid) {
             return res.status(400).json({ success: false, message: "Dear Client ,You are sending Invalid data. " })
 

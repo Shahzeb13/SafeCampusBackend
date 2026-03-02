@@ -1,6 +1,6 @@
 import { User } from "../../Modals/userModal.js";
 
-export function IsUserReqObjectValid(body: unknown): body is User {
+export function isValidUserRegistrationRequest(body: unknown): body is User {
     if (body === null || body === undefined) {
         return false;
     }
