@@ -5,24 +5,36 @@ import generateToken from "../Utils/generateToken.js";
 import bcrypt from "bcrypt";
 import { encryptPassword } from "../Utils/hashPassword.js";
 import { IsUserReqObjectValid } from "../Types/TypePredicates/isUserReqObjectValid.js";
+import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
 
 
 
-export const registerUser = async (req: Request, res: Response):Promise<Response | void>  => {
+export const registerUser = async (req: Request, res: Response): Promise<Response | void> => {
     console.log("User Registration Route hit");
     try {
         // const  body : User = req.body
         const body = req.body;
-        const isBodyValid = IsUserReqObjectValid(body);  
+        const isBodyValid = IsUserReqObjectValid(body);
         if (!isBodyValid) {
-             return res.status(400).json({success: false, message: "Dear Client ,You are sending Invalid data. "})
-             
+            return res.status(400).json({ success: false, message: "Dear Client ,You are sending Invalid data. " })
+
         };
-        
 
 
-        
+
+
         const { username, email, password, role, avatar } = body;
+
+        const isUsernameValid = validateUsername(username);
+        if (!isUsernameValid.ok) {
+            return res.status(400).json({ success: false, message: isUsernameValid.reason })
+        }
+
+        const isEmailValid = validateEmail(email);
+        if (!isEmailValid.ok) {
+            return res.status(400).json({ success: false, message: isEmailValid.reason })
+        }
+
 
         const userExists = await UserModal.findOne({ email });
 
@@ -32,9 +44,7 @@ export const registerUser = async (req: Request, res: Response):Promise<Response
         }
 
         const hashedPassword = await encryptPassword(password);
-        if (hashedPassword !== null) {
-            console.log("Password Hashed Successfully", hashedPassword)
-        }
+        
         const user = await UserModal.create({
             username,
             email,
@@ -50,7 +60,7 @@ export const registerUser = async (req: Request, res: Response):Promise<Response
                 httpOnly: true,
                 secure: process.env.NODE_ENV !== "development", // Use secure cookies in production
                 sameSite: "strict", // Prevent CSRF attacks
-                maxAge: 60 * 60 * 1000 // 30 days
+                maxAge:  30 * 24 * 60 * 60 * 1000,
             });
 
             res.status(201).json({
@@ -78,6 +88,12 @@ export const registerUser = async (req: Request, res: Response):Promise<Response
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
     try {
         const { email, password } = req.body;
+
+        const isEmailValid = validateEmail(email);
+        if (!isEmailValid.ok) {
+            res.status(400).json({ success: false, message: isEmailValid.reason })
+            return;
+        }
 
         const user = await UserModal.findOne({ email });
 
@@ -122,7 +138,7 @@ export const logoutUser = (req: Request, res: Response): void => {
 // @desc    Get user profile
 // @route   GET /api/users/profile
 // @access  Private
-export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
     try {
         const user = await UserModal.findById(req.user._id);
 
