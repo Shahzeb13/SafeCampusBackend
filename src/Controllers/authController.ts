@@ -64,7 +64,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
             });
 
             res.status(201).json({
-                _id: user.id,
+                userId: user.id,
                 username: user.username,
                 email: user.email,
                 role: user.role,
@@ -108,7 +108,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
             });
 
             res.json({
-                _id: user.id,
+                userId: user.id,
                 username: user.username,
                 email: user.email,
                 role: user.role,
@@ -140,7 +140,7 @@ export const logoutUser = (req: Request, res: Response): void => {
 // @access  Private
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const user = await UserModal.findById(req.user._id);
+        const user = await UserModal.findById(req.user?.userId);
 
         if (user) {
             res.json({

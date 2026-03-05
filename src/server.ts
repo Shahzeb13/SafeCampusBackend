@@ -4,6 +4,7 @@ dotenv.config();
 import express, { type Request, type Response } from "express";
 import cors from "cors";
 import authRoutes from "./Routes/authRoutes.js";
+import incidentRoutes from "./Routes/incidentRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -19,6 +20,7 @@ await connectToMongoDB()
 /* ---------- ROUTES ---------- */
 
 app.use("/api/auth", authRoutes);
+app.use("/api/incidents", incidentRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
