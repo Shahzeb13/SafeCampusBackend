@@ -5,6 +5,7 @@ import express, { type Request, type Response } from "express";
 import cors from "cors";
 import authRoutes from "./Routes/authRoutes.js";
 import incidentRoutes from "./Routes/incidentRoutes.js";
+import notificationRoutes from "./Routes/notificationRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -21,6 +22,7 @@ await connectToMongoDB()
 
 app.use("/api/auth", authRoutes);
 app.use("/api/incidents", incidentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({

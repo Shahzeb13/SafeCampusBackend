@@ -1,4 +1,4 @@
 export type jwtPayLoad = {
-      userId: string;
-      role: string;
-    };
+  id: string;
+  role: "student" | "staff" | "admin";
+};

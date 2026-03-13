@@ -21,7 +21,7 @@ export function verifyJwtToken(req: Request , res: Response , next: NextFunction
         if(!isValidJwtPayload(decoded)){
             return res.status(400).json({succes: false , message:"Decoded is not a valid jwtPayload"})
         }
-        decoded
+        decoded//checing flow type here , just hover over it brosski
     req.user = decoded;
 
 

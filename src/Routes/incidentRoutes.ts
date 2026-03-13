@@ -1,22 +1,23 @@
 import express from "express";
 import {
-    createIncident,
-    getAllIncidents,
-    getIncidentById,
-    updateIncident,
-    deleteIncident
+  createIncident,
+  getMyIncidents,
+  getIncidentById,
 } from "../Controllers/incidentController.js";
 import { verifyJwtToken } from "../Middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Apply auth middleware to all incident routes
+// All incident routes require authentication
 router.use(verifyJwtToken);
 
+// Student/Staff can submit a new incident
 router.post("/", createIncident);
-router.get("/", getAllIncidents);
+
+// Student/Staff can fetch all of their own incidents
+router.get("/my", getMyIncidents);
+
+// Student/Staff can fetch one of their own incident details by id
 router.get("/:id", getIncidentById);
-router.put("/:id", updateIncident);
-router.delete("/:id", deleteIncident);
 
 export default router;

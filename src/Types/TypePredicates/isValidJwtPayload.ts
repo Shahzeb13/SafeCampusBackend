@@ -1,7 +1,6 @@
 import { jwtPayLoad } from "../jwtPayloadType.js";
 
-export function isValidJwtPayload(decoded : unknown)  : decoded is jwtPayLoad{
-
+export function isValidJwtPayload(decoded : unknown)  : decoded is jwtPayLoad {
     if(decoded === null || decoded === undefined){
         return false;
     }
@@ -16,13 +15,13 @@ export function isValidJwtPayload(decoded : unknown)  : decoded is jwtPayLoad{
     const d = decoded as Record<string , unknown>
     
     if(
-        (typeof d.userId !== "string") ||
+        (typeof d.id !== "string") ||
         (typeof d.role !== "string")
     ){
         return false;
     }
 
-    if (!["admin", "user", "staff"].includes(d.role)) return false;
+    if (!["admin", "student", "staff"].includes(d.role)) return false;
 
     return true
 }

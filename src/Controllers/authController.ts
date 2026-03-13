@@ -1,6 +1,6 @@
 
 import { Request, Response } from "express";
-import UserModal, { User } from "../Modals/userModal.js";
+import UserModal from "../Models/userModel.js";
 import generateToken from "../Utils/generateToken.js";
 import bcrypt from "bcrypt";
 import { encryptPassword } from "../Utils/hashPassword.js";
@@ -16,7 +16,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
         const body = req.body;
         const isBodyValid = isValidUserRegistrationRequest(body);
         if (!isBodyValid) {
-            return res.status(400).json({ success: false, message: "Dear Client ,You are sending Invalid data. " })
+            return res.status(400).json({ success: false, message: "User ,You are sending Invalid data. " })
 
         };
 
@@ -64,7 +64,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
             });
 
             res.status(201).json({
-                userId: user.id,
+                id: user.id,
                 username: user.username,
                 email: user.email,
                 role: user.role,
@@ -86,6 +86,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
 // @route   POST /api/users/login
 // @access  Public
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
+    console.log("Login route hit");
     try {
         const { email, password } = req.body;
 
@@ -108,12 +109,12 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
             });
 
             res.json({
-                userId: user.id,
+                id: user.id,
                 username: user.username,
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
-
+                token: token,
             });
         } else {
             res.status(401).json({ message: "Invalid email or password" });
@@ -140,11 +141,11 @@ export const logoutUser = (req: Request, res: Response): void => {
 // @access  Private
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
     try {
-        const user = await UserModal.findById(req.user?.userId);
+        const user = await UserModal.findById(req.user?.id);
 
         if (user) {
             res.json({
-                _id: user.id,
+                id: user.id,
                 username: user.username,
                 email: user.email,
                 role: user.role,
