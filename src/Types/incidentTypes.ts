@@ -1,3 +1,11 @@
+import { Types } from "mongoose";
+
+export interface IMedia {
+  url: string;
+  publicId: string;
+  resourceType: string;
+}
+
 export type IncidentType =
   | "theft"
   | "property_damage"
@@ -18,9 +26,9 @@ export type IncidentStatus =
   | "resolved"
   | "rejected";
 
-export interface Incident {
+export interface IIncident {
   _id?: string;
-  reporter_id: string;
+  reporter_id: Types.ObjectId;
   reporter_role: "student" | "staff";
   title: string;
   description: string;
@@ -28,18 +36,27 @@ export interface Incident {
   locationText: string;
   latitude?: number;
   longitude?: number;
-  mediaUrls?: string[];
+  images: IMedia[];
+  video?: IMedia | null;
+  audio?: IMedia | null;
+  voiceDuration?: string;
   status: IncidentStatus;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export interface CreateIncidentBody {
+export interface IncidentCreateRequest {
   title: string;
   description: string;
-  incidentType: IncidentType;
+  incidentType: string; // Initially received as string from FormData
   locationText: string;
-  latitude?: number;
-  longitude?: number;
-  mediaUrls?: string[];
+  latitude?: string | number;
+  longitude?: string | number;
+  voiceDuration?: string;
+}
+
+export interface IncidentMulterFiles {
+  images?: Express.Multer.File[];
+  video?: Express.Multer.File[];
+  audio?: Express.Multer.File[];
 }

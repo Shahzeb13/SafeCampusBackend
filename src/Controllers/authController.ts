@@ -21,9 +21,12 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
         };
 
 
+        body
 
-
-        const { username, email, password, role, avatar } = body;
+        const { 
+            username, email, password, role, avatar,
+            rollNumber, universityName, departmentName, program, semester, section 
+        } = body;
 
         const isUsernameValid = validateUsername(username);
         if (!isUsernameValid.ok) {
@@ -50,7 +53,13 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
             email,
             password: hashedPassword,
             role,
-            avatar
+            avatar,
+            rollNumber,
+            universityName,
+            departmentName,
+            program,
+            semester,
+            section
         });
 
         if (user) {
@@ -63,7 +72,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
                 maxAge:  30 * 24 * 60 * 60 * 1000,
             });
 
-            res.status(201).json({
+            return res.status(201).json({
                 id: user.id,
                 username: user.username,
                 email: user.email,
@@ -87,6 +96,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
 // @access  Public
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
     console.log("Login route hit");
+    console.log(req.body)
     try {
         const { email, password } = req.body;
 

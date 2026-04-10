@@ -1,15 +1,7 @@
-import { CreateIncidentBody, IncidentType, IncidentStatus } from "../incidentTypes.js";
+import { IncidentCreateRequest, IncidentType, IncidentStatus } from "../incidentTypes.js";
 
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-export function isOptionalNumber(value: unknown): value is number | undefined {
-  return value === undefined || typeof value === "number";
-}
-
-export function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 export function isValidIncidentType(value: unknown): value is IncidentType {
@@ -40,18 +32,21 @@ export function isValidIncidentStatus(value: unknown): value is IncidentStatus {
   return typeof value === "string" && validStatuses.includes(value as IncidentStatus);
 }
 
-export function isCreateIncidentBody(value: unknown): value is CreateIncidentBody {
+export function isIncidentCreateRequest(value: unknown): value is IncidentCreateRequest {
   if (value === null || typeof value !== "object") return false;
 
   const body = value as Record<string, unknown>;
+
+  const isValidCoord = (val: unknown) => 
+    val === undefined || typeof val === "number" || typeof val === "string";
 
   return (
     isNonEmptyString(body.title) &&
     isNonEmptyString(body.description) &&
     isValidIncidentType(body.incidentType) &&
     isNonEmptyString(body.locationText) &&
-    isOptionalNumber(body.latitude) &&
-    isOptionalNumber(body.longitude) &&
-    (body.mediaUrls === undefined || isStringArray(body.mediaUrls))
+    isValidCoord(body.latitude) &&
+    isValidCoord(body.longitude) &&
+    (body.voiceDuration === undefined || typeof body.voiceDuration === "string")
   );
 }

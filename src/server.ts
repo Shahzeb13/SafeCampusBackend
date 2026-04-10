@@ -6,6 +6,8 @@ import cors from "cors";
 import authRoutes from "./Routes/authRoutes.js";
 import incidentRoutes from "./Routes/incidentRoutes.js";
 import notificationRoutes from "./Routes/notificationRoutes.js";
+import emergencyContactRoutes from "./Routes/emergencyContactRoutes.js";
+import sosRoutes from "./Routes/sosRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -23,6 +25,17 @@ await connectToMongoDB()
 app.use("/api/auth", authRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/emergency-contacts", emergencyContactRoutes);
+app.use("/api/sos", sosRoutes);
+
+app.get("/api/test-server", (req: Request, res: Response) => {
+  console.log("Test Server ROute hit")
+  res.status(200).json({
+    success: true,
+    message: "Backend is reachable and responding properly! Yeah It's working buddy",
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get("/", (req: Request, res: Response) => {
   res.status(200).json({
@@ -32,8 +45,10 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 /* ---------- START SERVER ---------- */
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+server.timeout = 300000; // 5 minutes recorded timeout for large file uploads
 
 

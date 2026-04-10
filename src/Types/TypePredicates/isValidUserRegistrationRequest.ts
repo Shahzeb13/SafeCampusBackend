@@ -1,6 +1,6 @@
-import { User } from "../../Modals/userModal.js";
+import {UserRegistrationRequest } from "../userTypes.js";
 
-export function isValidUserRegistrationRequest(body: unknown): body is User {
+export function isValidUserRegistrationRequest(body: unknown): body is UserRegistrationRequest{
     if (body === null || body === undefined) {
         return false;
     }
@@ -13,17 +13,24 @@ export function isValidUserRegistrationRequest(body: unknown): body is User {
 
     body;// at this point, now the type is object and only non-primitive types are involved
     const b = body as Record<string, unknown>
-if (
-    typeof b.username !== "string" ||
-    typeof b.email !== "string" ||
-    typeof b.password !== "string" ||
-    typeof b.role !== "string" ||
-    (typeof b.avatar !== "string" && b.avatar !== null)
-) {
-    return false;
-}
 
-    
+
+    // required fields
+    if (typeof b.username !== "string") return false;
+    if (typeof b.email !== "string") return false;
+    if (typeof b.password !== "string") return false;
+    if (typeof b.role !== "string") return false;
+
+    // optional fields
+    if (b.avatar !== undefined && b.avatar !== null && typeof b.avatar !== "string") return false;
+
+    if (b.rollNumber !== undefined && typeof b.rollNumber !== "string") return false;
+    if (b.universityName !== undefined && typeof b.universityName !== "string") return false;
+    if (b.departmentName !== undefined && typeof b.departmentName !== "string") return false;
+    if (b.program !== undefined && typeof b.program !== "string") return false;
+    if (b.semester !== undefined && typeof b.semester !== "string") return false;
+    if (b.section !== undefined && typeof b.section !== "string") return false;
+
     return true;
 
 }

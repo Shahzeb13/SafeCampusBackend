@@ -1,0 +1,32 @@
+export interface IUser {
+    username: string;
+    email: string;
+    password: string;
+    role: "student" | "staff" | "admin";
+    avatar?: string | null;
+    rollNumber?: string;
+    universityName?: string;
+    departmentName?: string;
+    program?: string;
+    semester?: string;
+    section?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+
+
+
+export interface UserRegistrationRequest {
+  username: string;
+  email: string;
+  password: string;
+  role: string;
+  avatar?: string | null;
+  rollNumber?: string;
+  universityName?: string;
+  departmentName?: string;
+  program?: string;
+  semester?: string;
+  section?: string;
+}

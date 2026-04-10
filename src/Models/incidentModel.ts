@@ -1,11 +1,11 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { Incident } from "../Types/incidentTypes.js";
+import { IIncident } from "../Types/incidentTypes.js";
 
-export interface IncidentDocument extends Incident, Document {
-    _id: any; // Explicitly override if needed or just use default
-}
+// export interface IncidentDocument extends IIncident, Document {
+//   _id: any; // Explicitly override if needed or just use default
+// }
 
-const incidentSchema = new Schema<IncidentDocument>(
+const incidentSchema = new Schema<IIncident>(
   {
     reporter_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
     reporter_role: { type: String, enum: ["student", "staff"], required: true },
@@ -31,7 +31,24 @@ const incidentSchema = new Schema<IncidentDocument>(
     locationText: { type: String, required: true },
     latitude: { type: Number },
     longitude: { type: Number },
-    mediaUrls: { type: [String], default: [] },
+    images: [
+      {
+        url: { type: String, required: true },
+        publicId: { type: String, required: true },
+        resourceType: { type: String, required: true },
+      },
+    ],
+    video: {
+      url: { type: String },
+      publicId: { type: String },
+      resourceType: { type: String },
+    },
+    audio: {
+      url: { type: String },
+      publicId: { type: String },
+      resourceType: { type: String },
+    },
+    voiceDuration: { type: String },
     status: {
       type: String,
       enum: ["pending", "under_review", "assigned", "resolved", "rejected"],
@@ -46,5 +63,5 @@ const incidentSchema = new Schema<IncidentDocument>(
 // Index for better query performance on reporter_id
 incidentSchema.index({ reporter_id: 1, createdAt: -1 });
 
-const IncidentModel = mongoose.model<IncidentDocument>("Incident", incidentSchema);
+const IncidentModel = mongoose.model<IIncident>("Incident", incidentSchema);
 export default IncidentModel;

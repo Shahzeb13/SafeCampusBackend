@@ -7,15 +7,18 @@ import { isValidJwtPayload } from "../Types/TypePredicates/isValidJwtPayload.js"
 
 
 export function verifyJwtToken(req: Request , res: Response , next: NextFunction){
-    // const token = req.cookies.jwt;
+    console.log("Auth Middleware hit")
     try{
-   console.log("request" , req);
-    const token = req.cookies?.jwt;
-    if(!token){
-        return res.status(401).json({success: false , message:"Not Authorizied! Token Not Found"});
+    let token = req.cookies?.jwt;
 
+    // Check Authorization header if cookie not found (standard for mobile)
+    if (!token && req.headers.authorization?.startsWith('Bearer')) {
+        token = req.headers.authorization.split(' ')[1];
     }
 
+    if(!token){
+        return res.status(401).json({success: false , message:"Not Authorizied! Token Not Found"});
+    }
 
     const decoded = jwt.verify(token , process.env.JWT_SECRET!) ;
         if(!isValidJwtPayload(decoded)){
@@ -24,6 +27,7 @@ export function verifyJwtToken(req: Request , res: Response , next: NextFunction
         decoded//checing flow type here , just hover over it brosski
     req.user = decoded;
 
+    
 
     next();
 
