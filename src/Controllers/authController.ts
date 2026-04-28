@@ -6,6 +6,9 @@ import bcrypt from "bcrypt";
 import { encryptPassword } from "../Utils/hashPassword.js";
 import {  isValidUserRegistrationRequest } from "../Types/TypePredicates/isValidUserRegistrationRequest.js";
 import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
+import { sendOTPEmail } from "../Utils/emailService.js";
+import crypto from "crypto";
+
 
 
 
@@ -46,13 +49,17 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
             return;
         }
 
+        // Prevent public privilege escalation
+        const validRoles = ["student", "staff"];
+        const finalRole = validRoles.includes(role) ? role : "student";
+
         const hashedPassword = await encryptPassword(password);
         
         const user = await UserModal.create({
             username,
             email,
             password: hashedPassword,
-            role,
+            role: finalRole, // Accepts student or staff, defaults to student
             avatar,
             rollNumber,
             universityName,
@@ -139,6 +146,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 // @route   POST /api/users/logout
 // @access  Private
 export const logoutUser = (req: Request, res: Response): void => {
+    console.log("logout rout hit")
     res.cookie("jwt", "", {
         httpOnly: true,
         expires: new Date(0),
@@ -169,3 +177,70 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         res.status(500).json({ message: "Server Error" });
     }
 };
+
+// @desc    Request password reset OTP
+// @route   POST /api/auth/forgot-password
+// @access  Public
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+    console.log("forgot password rout hit");
+    try {
+        const { email } = req.body;
+        const user = await UserModal.findOne({ email });
+
+        if (!user) {
+            res.status(404).json({ success: false, message: "User not found" });
+            return;
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Save OTP and expiry (10 minutes)
+        user.resetPasswordOTP = otp;
+        user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await user.save();
+
+        // Send Email
+        await sendOTPEmail(user.email, otp);
+
+        res.status(200).json({ success: true, message: "OTP sent to your email" });
+    } catch (error) {
+        console.error("Forgot password error:", error);
+        res.status(500).json({ success: false, message: "Failed to process request" });
+    }
+};
+
+// @desc    Reset password using OTP
+// @route   POST /api/auth/reset-password
+// @access  Public
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+    console.log("reset password route hit");
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        const user = await UserModal.findOne({
+            email,
+            resetPasswordOTP: otp,
+            resetPasswordOTPExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+            return;
+        }
+
+        // Encrypt new password
+        user.password = await encryptPassword(newPassword);
+        
+        // Clear OTP fields
+        user.resetPasswordOTP = null;
+        user.resetPasswordOTPExpires = null;
+        await user.save();
+
+        res.status(200).json({ success: true, message: "Password reset successful" });
+    } catch (error) {
+        console.error("Reset password error:", error);
+        res.status(500).json({ success: false, message: "Failed to reset password" });
+    }
+};
+

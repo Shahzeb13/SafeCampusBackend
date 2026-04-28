@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import SOSModel from '../Models/sosModel.js';
 import { isValidSOSRequest } from '../Types/TypePredicates/isValidSOSRequest.js';
+import { sendNotificationToUser } from '../Utils/notificationService.js';
 
 export const createSOS = async (req: Request, res: Response) => {
   console.log("CreateSos controller hit")
@@ -96,10 +97,19 @@ export const updateSOSStatus = async (req: Request, res: Response) => {
       id,
       { $set: updateData },
       { new: true }
-    );
+    ).populate('userId');
 
     if (!updatedSOS) {
       return res.status(404).json({ success: false, message: 'SOS alert not found' });
+    }
+
+    // Send FCM notification to the user
+    const user = updatedSOS.userId as any;
+    if (user && user.fcmTokens && user.fcmTokens.length > 0) {
+      await sendNotificationToUser(user._id.toString(), {
+        title: 'SOS Update',
+        body: `Your SOS alert status is now ${status}`,
+      });
     }
 
     return res.status(200).json({

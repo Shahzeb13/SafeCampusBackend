@@ -10,6 +10,9 @@ export interface IUser {
     program?: string;
     semester?: string;
     section?: string;
+    fcmTokens: string[];
+    resetPasswordOTP?: string | null;
+    resetPasswordOTPExpires?: Date | null;
     createdAt?: Date;
     updatedAt?: Date;
 }

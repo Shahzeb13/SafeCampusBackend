@@ -46,8 +46,10 @@ export function verifyJwtToken(req: Request , res: Response , next: NextFunction
  
 }
 
-//today task
-//learn about request and respnse objects as much as you can today
-// work on seach engine prject too, learn about regex engine as much
-//as you can
-//i have still doubts in type assertion , gotta clear them
+export function isAdmin(req: Request, res: Response, next: NextFunction) {
+    if (req.user && req.user.role === "admin") {
+        next();
+    } else {
+        res.status(403).json({ success: false, message: "Not Authorized! Admin access required" });
+    }
+}

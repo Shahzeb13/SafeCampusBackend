@@ -13,7 +13,10 @@ const userSchema = new mongoose.Schema<IUser>({
     departmentName: { type: String },
     program: { type: String },
     semester: { type: String },
-    section: { type: String }
+    section: { type: String },
+    fcmTokens: { type: [String], default: [] },
+    resetPasswordOTP: { type: String, default: null },
+    resetPasswordOTPExpires: { type: Date, default: null }
 }, {
     timestamps: true
 });

@@ -70,13 +70,13 @@ export function validateEmail(email: string): validation {
   const [localPart, domain] = e.split("@");
 
   // Requirement: localPart must contain at least one number
-  const hasNumber = /\d/.test(localPart);
-  if (!hasNumber) {
-    return {
-      ok: false,
-      reason: "Email must contain at least one number before the '@' symbol (e.g., user1@example.com)."
-    };
-  }
+  // const hasNumber = /\d/.test(localPart);
+  // if (!hasNumber) {
+  //   return {
+  //     ok: false,
+  //     reason: "Email must contain at least one number before the '@' symbol (e.g., user1@example.com)."
+  //   };
+  // }
 
   // Domain validation
   if (!ALLOWED_EMAIL_DOMAINS.has(domain)) {

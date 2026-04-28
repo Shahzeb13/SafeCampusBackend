@@ -5,3 +5,5 @@ export  async function  encryptPassword(password: string): Promise<string>{
     const hashedPassword = await bcrypt.hash(password, salt);
     return hashedPassword;
 }
+
+console.log("hello");

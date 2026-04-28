@@ -3,6 +3,8 @@ import {
   createIncident,
   getMyIncidents,
   getIncidentById,
+  getAllIncidents,
+  updateIncidentStatus,
 } from "../Controllers/incidentController.js";
 import { verifyJwtToken } from "../Middlewares/authMiddleware.js";
 
@@ -30,10 +32,17 @@ router.post('/uploadIncident', (req, res, next) => {
     next();
   });
 }, createIncident);
+
+// Admin can fetch all incidents with optional filtering
+router.get("/", getAllIncidents);
+
 // Student/Staff can fetch all of their own incidents
 router.get("/myIncidents", getMyIncidents);
 
 // Student/Staff can fetch one of their own incident details by id
 router.get("/:id", getIncidentById);
+
+// Admin can update incident status
+router.post("/update-status", updateIncidentStatus);
 
 export default router;

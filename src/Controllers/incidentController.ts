@@ -4,6 +4,7 @@ import { isIncidentCreateRequest } from "../Types/TypePredicates/incidentTypePre
 import { IMedia, IncidentCreateRequest, IncidentMulterFiles } from "../Types/incidentTypes.js";
 import { uploadOnCloudinary } from "../Utils/cloudinary.js";
 import fs from "fs";
+import { sendNotificationToUser } from "../Utils/notificationService.js";
 
 // @desc    Submit a new incident
 // @route   POST /api/incidents/uploadIncident
@@ -168,7 +169,7 @@ export const getMyIncidents = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Get a single incident by ID (owned by user)
+// @desc    Get a single incident by ID (owned by user or global for admin)
 // @route   GET /api/incidents/:id
 // @access  Private
 export const getIncidentById = async (req: Request, res: Response) => {
@@ -179,10 +180,14 @@ export const getIncidentById = async (req: Request, res: Response) => {
         return res.status(401).json({ message: "Not authorized" });
     }
 
-    const incident = await IncidentModel.findOne({
-      _id: (req as any).params.id,
-      reporter_id: user.id,
-    });
+    const query: any = { _id: (req as any).params.id };
+    
+    // If not admin, restrict fetch to ONLY incidents they reporter
+    if (user.role !== "admin") {
+      query.reporter_id = user.id;
+    }
+
+    const incident = await IncidentModel.findOne(query).populate("reporter_id", "username email phone");
 
     if (!incident) {
       return res.status(404).json({ message: "Incident not found or not authorized" });
@@ -192,5 +197,90 @@ export const getIncidentById = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error fetching incident by ID:", error);
     res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// @desc    Get all incidents (with optional type filtering)
+// @route   GET /api/incidents
+// @access  Private (Admin only)
+export const getAllIncidents = async (req: Request, res: Response) => {
+  console.log("getAllIncidents route hit");
+  try {
+    const user = req.user;
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized as admin" });
+    }
+
+    const { type } = req.query;
+    
+    // Build filter query
+    let query: any = {};
+    if (type && type !== "all") {
+       query.incidentType = type;
+    }
+
+    const incidents = await IncidentModel.find(query)
+      .populate("reporter_id", "username email")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(incidents);
+  } catch (error: any) {
+    console.error("Error fetching all incidents:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// @desc    Update incident status and notify user
+// @route   POST /api/incidents/update-status
+// @access  Private (Admin only)
+export const updateIncidentStatus = async (req: Request, res: Response) => {
+  console.log("updateIncidentStatus route hit");
+  try {
+    const { incidentId, status } = req.body;
+
+    if (!incidentId || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "incidentId and status are required" 
+      });
+    }
+
+    // Find and update the incident
+    const updatedIncident = await IncidentModel.findByIdAndUpdate(
+      incidentId,
+      { status },
+      { new: true }
+    ).populate("reporter_id");
+
+    if (!updatedIncident) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Incident not found" 
+      });
+    }
+
+    // Get user details for notification
+    const reporter = updatedIncident.reporter_id as any;
+    
+    // If user has FCM tokens, send notification
+    if (reporter && reporter.fcmTokens && reporter.fcmTokens.length > 0) {
+      await sendNotificationToUser(reporter._id.toString(), {
+        title: "Incident Update",
+        body: `Your incident status is now ${status}`,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Incident status updated to ${status}`,
+      data: updatedIncident,
+    });
+  } catch (error: any) {
+    console.error("Update Incident Status Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update incident status",
+      error: error.message,
+    });
   }
 };

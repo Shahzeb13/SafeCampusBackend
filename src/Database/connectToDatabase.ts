@@ -1,4 +1,5 @@
 import mongoose from "mongoose"
+import { logger } from "../Utils/logger.js"
 
 
 export async function connectToMongoDB() {
@@ -7,10 +8,10 @@ export async function connectToMongoDB() {
       await mongoose.connect(process.env.ATLAS_URI,{
       dbName: "SafeCampus"
     });
-    console.log("MongoDB Connected");
+    logger.dbConnected();
     }
     
   } catch (error) {
-    console.error(error);
+    logger.error(`Database connection failed: ${error}`);
   }
 }
