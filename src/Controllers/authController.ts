@@ -84,6 +84,8 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
                 username: user.username,
                 email: user.email,
                 role: user.role,
+                avatar: user.avatar,
+                personalEmergencyContacts: user.personalEmergencyContacts || [],
                 token: token,
             });
         } else {
@@ -131,6 +133,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
+                personalEmergencyContacts: user.personalEmergencyContacts || [],
                 token: token,
             });
         } else {
@@ -165,9 +168,9 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
             res.json({
                 id: user.id,
                 username: user.username,
-                email: user.email,
                 role: user.role,
                 avatar: user.avatar,
+                personalEmergencyContacts: user.personalEmergencyContacts || [],
             });
         } else {
             res.status(404).json({ message: "User not found" });

@@ -122,7 +122,8 @@ export const updateProfile = async (req: Request, res: Response) => {
                 departmentName: user.departmentName,
                 program: user.program,
                 semester: user.semester,
-                section: user.section
+                section: user.section,
+                personalEmergencyContacts: user.personalEmergencyContacts || []
             }
         });
 
@@ -134,4 +135,69 @@ export const updateProfile = async (req: Request, res: Response) => {
         });
     }
 };
+/**
+ * @desc    Add a personal emergency contact
+ * @route   POST /api/users/emergency-contacts
+ * @access  Private
+ */
+export const addEmergencyContact = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        const { name, phoneNumber } = req.body;
 
+        if (!name || !phoneNumber) {
+            return res.status(400).json({ success: false, message: "Name and phone number are required" });
+        }
+
+        const user = await UserModel.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        if (!user.personalEmergencyContacts) user.personalEmergencyContacts = [];
+        
+        // Limit to 5 contacts for safety/spam prevention
+        if (user.personalEmergencyContacts.length >= 5) {
+            return res.status(400).json({ success: false, message: "Maximum 5 emergency contacts allowed" });
+        }
+
+        user.personalEmergencyContacts.push({ name, phoneNumber });
+        await user.save();
+
+        return res.status(200).json({ 
+            success: true, 
+            message: "Contact added successfully",
+            contacts: user.personalEmergencyContacts 
+        });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * @desc    Remove a personal emergency contact
+ * @route   DELETE /api/users/emergency-contacts/:index
+ * @access  Private
+ */
+export const removeEmergencyContact = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        const index = parseInt(req.params.index);
+
+        const user = await UserModel.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+        if (!user.personalEmergencyContacts || index < 0 || index >= user.personalEmergencyContacts.length) {
+            return res.status(400).json({ success: false, message: "Invalid contact index" });
+        }
+
+        user.personalEmergencyContacts.splice(index, 1);
+        await user.save();
+
+        return res.status(200).json({ 
+            success: true, 
+            message: "Contact removed successfully",
+            contacts: user.personalEmergencyContacts 
+        });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};

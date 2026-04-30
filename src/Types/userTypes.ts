@@ -13,6 +13,8 @@ export interface IUser {
     fcmTokens: string[];
     resetPasswordOTP?: string | null;
     resetPasswordOTPExpires?: Date | null;
+    phoneNumber?: string;
+    personalEmergencyContacts?: { name: string; phoneNumber: string }[];
     createdAt?: Date;
     updatedAt?: Date;
 }

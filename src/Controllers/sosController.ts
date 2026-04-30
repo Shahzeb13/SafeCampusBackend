@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import SOSModel from '../Models/sosModel.js';
+import UserModel from '../Models/userModel.js';
 import { isValidSOSRequest } from '../Types/TypePredicates/isValidSOSRequest.js';
 import { sendNotificationToUser } from '../Utils/notificationService.js';
+import { broadcastEmergencyAlert } from '../Utils/smsService.js';
 
 export const createSOS = async (req: Request, res: Response) => {
   console.log("CreateSos controller hit")
@@ -37,6 +39,18 @@ export const createSOS = async (req: Request, res: Response) => {
     });
 
     await newSOS.save();
+
+    // --- BROADCAST TO PERSONAL EMERGENCY CONTACTS ---
+    const user = await UserModel.findById(userId);
+    if (user && user.personalEmergencyContacts && user.personalEmergencyContacts.length > 0) {
+      console.log(`📡 SOS: Broadcasting to ${user.personalEmergencyContacts.length} personal contacts for ${user.username}`);
+      // Run in background so SOS response is fast
+      broadcastEmergencyAlert(
+        user.personalEmergencyContacts, 
+        user.username, 
+        { latitude: location.latitude, longitude: location.longitude }
+      ).catch(err => console.error("Broadcast failed:", err));
+    }
 
     return res.status(201).json({
       success: true,

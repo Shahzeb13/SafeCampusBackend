@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
 import EmergencyContactModel from "../Models/emergencyContactModel.js";
 import { isEmergencyContactBody } from "../Types/TypePredicates/emergencyTypePredicates.js";
+import { logger } from "../Utils/logger.js";
 
 // @desc    Get all emergency contacts
 // @route   GET /api/emergency-contacts
@@ -10,6 +10,7 @@ export const getEmergencyContacts = async (req: Request, res: Response) => {
         const contacts = await EmergencyContactModel.find().sort({ isPrimary: -1, name: 1 });
         res.status(200).json(contacts);
     } catch (error: any) {
+        logger.error(`Error fetching emergency contacts: ${error.message}`);
         res.status(500).json({ message: error.message });
     }
 };
@@ -29,8 +30,10 @@ export const createEmergencyContact = async (req: Request, res: Response) => {
             category,
             isPrimary
         });
+        logger.info(`✅ Emergency Contact Created: ${contact.name}`);
         res.status(201).json(contact);
     } catch (error: any) {
+        logger.error(`Error creating emergency contact: ${error.message}`);
         res.status(400).json({ message: error.message });
     }
 };

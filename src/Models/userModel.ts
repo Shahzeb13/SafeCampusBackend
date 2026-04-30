@@ -16,7 +16,12 @@ const userSchema = new mongoose.Schema<IUser>({
     section: { type: String },
     fcmTokens: { type: [String], default: [] },
     resetPasswordOTP: { type: String, default: null },
-    resetPasswordOTPExpires: { type: Date, default: null }
+    resetPasswordOTPExpires: { type: Date, default: null },
+    phoneNumber: { type: String },
+    personalEmergencyContacts: [{
+        name: { type: String, required: true },
+        phoneNumber: { type: String, required: true }
+    }]
 }, {
     timestamps: true
 });

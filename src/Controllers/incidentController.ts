@@ -230,6 +230,29 @@ export const getAllIncidents = async (req: Request, res: Response) => {
   }
 };
 
+// @desc    Get anonymized incident locations for the heatmap
+// @route   GET /api/incidents/radar
+// @access  Private
+export const getIncidentsForRadar = async (req: Request, res: Response) => {
+  console.log("getIncidentsForRadar route hit");
+  try {
+    // We allow ANY authenticated user to see the radar data
+    const incidents = await IncidentModel.find({}, {
+      latitude: 1,
+      longitude: 1,
+      incidentType: 1,
+      status: 1,
+      createdAt: 1,
+      _id: 0 // Anonymize by not sending IDs or reporter info
+    });
+
+    res.status(200).json(incidents);
+  } catch (error: any) {
+    console.error("Error fetching radar incidents:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
 // @desc    Update incident status and notify user
 // @route   POST /api/incidents/update-status
 // @access  Private (Admin only)
