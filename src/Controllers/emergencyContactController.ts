@@ -1,3 +1,4 @@
+import { Request, Response } from "express";
 import EmergencyContactModel from "../Models/emergencyContactModel.js";
 import { isEmergencyContactBody } from "../Types/TypePredicates/emergencyTypePredicates.js";
 import { logger } from "../Utils/logger.js";
