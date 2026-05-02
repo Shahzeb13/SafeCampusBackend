@@ -5,6 +5,7 @@ import NotificationModel from "../Models/notificationModel.js";
 // @route   GET /api/notifications
 // @access  Private
 export const getMyNotifications = async (req: Request, res: Response) => {
+  console.log("getMyNotifications route hit");
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Not authorized" });
@@ -24,6 +25,7 @@ export const getMyNotifications = async (req: Request, res: Response) => {
 // @route   PATCH /api/notifications/:id/read
 // @access  Private
 export const markNotificationAsRead = async (req: Request, res: Response) => {
+  console.log("markNotificationAsRead route hit");
   try {
     if (!req.user) {
       return res.status(401).json({ message: "Not authorized" });

@@ -20,6 +20,9 @@ export interface ISOS {
   latestLocation?: LocationPoint;
   locationHistory?: LocationPoint[];
   note?: string;
+  assigned_to?: Types.ObjectId;
+  assignmentResponse?: 'pending' | 'responding' | 'unavailable' | 'completed';
+  assignmentNote?: string;
   acknowledgedAt?: Date;
   respondedAt?: Date;
   resolvedAt?: Date;

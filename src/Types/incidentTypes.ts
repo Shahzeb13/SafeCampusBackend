@@ -26,6 +26,8 @@ export type IncidentStatus =
   | "resolved"
   | "rejected";
 
+export type AssignmentResponse = "pending" | "responding" | "unavailable" | "completed";
+
 export interface IIncident {
   _id?: string;
   reporter_id: Types.ObjectId;
@@ -41,6 +43,9 @@ export interface IIncident {
   audio?: IMedia | null;
   voiceDuration?: string;
   status: IncidentStatus;
+  assigned_to?: Types.ObjectId | null;
+  assignmentResponse?: AssignmentResponse | null;
+  assignmentNote?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

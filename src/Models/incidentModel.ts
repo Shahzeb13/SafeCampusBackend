@@ -54,6 +54,13 @@ const incidentSchema = new Schema<IIncident>(
       enum: ["pending", "under_review", "assigned", "resolved", "rejected"],
       default: "pending",
     },
+    assigned_to: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    assignmentResponse: {
+      type: String,
+      enum: ["pending", "responding", "unavailable", "completed"],
+      default: null,
+    },
+    assignmentNote: { type: String, default: null },
   },
   {
     timestamps: true,

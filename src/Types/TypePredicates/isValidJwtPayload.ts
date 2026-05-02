@@ -21,7 +21,7 @@ export function isValidJwtPayload(decoded : unknown)  : decoded is jwtPayLoad {
         return false;
     }
 
-    if (!["admin", "student", "staff"].includes(d.role)) return false;
+    if (!["admin", "student", "staff", "security_personnel"].includes(d.role as string)) return false;
 
     return true
 }

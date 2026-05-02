@@ -6,6 +6,9 @@ import {
   getAllIncidents,
   getIncidentsForRadar,
   updateIncidentStatus,
+  assignIncident,
+  respondToAssignment,
+  getMyAssignments,
 } from "../Controllers/incidentController.js";
 import { verifyJwtToken } from "../Middlewares/authMiddleware.js";
 
@@ -29,8 +32,6 @@ router.get("/", getAllIncidents);
 
 // --- DYNAMIC ROUTES LAST ---
 
-// Student/Staff can fetch one of their own incident details by id
-router.get("/:id", getIncidentById);
 
 // Student/Staff can submit a new incident
 router.post('/uploadIncident', (req, res, next) => {
@@ -52,5 +53,17 @@ router.post('/uploadIncident', (req, res, next) => {
 
 // Admin can update incident status
 router.post("/update-status", updateIncidentStatus);
+
+// Admin can assign an incident to security personnel
+router.post("/assign", assignIncident);
+
+// Security guard responds to an assignment
+router.post("/respond-assignment", respondToAssignment);
+
+// Security guard fetches their assigned incidents
+router.get("/my-assignments", getMyAssignments);
+
+// Student/Staff can fetch one of their own incident details by id
+router.get("/:id", getIncidentById);
 
 export default router;

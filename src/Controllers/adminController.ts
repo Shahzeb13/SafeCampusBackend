@@ -2,11 +2,13 @@ import { Request, Response } from "express";
 import UserModal from "../Models/userModel.js";
 import { encryptPassword } from "../Utils/hashPassword.js";
 import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
+import { sendWelcomeEmail } from "../Utils/emailService.js";
 
 /**
  * Controller for Admin to create users (Students or Staff)
  */
 export const createUserByAdmin = async (req: Request, res: Response) => {
+    console.log("createUserByAdmin route hit");
     try {
         const { username, email, password, role } = req.body;
 
@@ -16,9 +18,9 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
         }
 
         // 2. Role Security Check
-        const allowedRoles = ["student", "staff"];
+        const allowedRoles = ["student", "staff", "security_personnel"];
         if (!allowedRoles.includes(role)) {
-            return res.status(400).json({ success: false, message: "Invalid role. Admins can only create 'student' or 'staff' accounts." });
+            return res.status(400).json({ success: false, message: "Invalid role. Admins can only create 'student', 'staff', or 'security_personnel' accounts." });
         }
 
         // 3. User Input Validation
@@ -43,6 +45,9 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
             role,
             // Add other optional fields if necessary or let them be updated later
         });
+
+        // Send Welcome Email in background
+        sendWelcomeEmail(user.email, user.username, user.role).catch(err => console.error("Admin created user welcome email error:", err));
 
         res.status(201).json({
             success: true,

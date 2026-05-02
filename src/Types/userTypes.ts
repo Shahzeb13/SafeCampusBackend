@@ -2,7 +2,7 @@ export interface IUser {
     username: string;
     email: string;
     password: string;
-    role: "student" | "staff" | "admin";
+    role: "student" | "staff" | "admin" | "security_personnel";
     avatar?: string | null;
     rollNumber?: string;
     universityName?: string;

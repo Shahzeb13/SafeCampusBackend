@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 import { encryptPassword } from "../Utils/hashPassword.js";
 import {  isValidUserRegistrationRequest } from "../Types/TypePredicates/isValidUserRegistrationRequest.js";
 import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
-import { sendOTPEmail } from "../Utils/emailService.js";
+import { sendOTPEmail, sendWelcomeEmail } from "../Utils/emailService.js";
 import crypto from "crypto";
 
 
@@ -50,7 +50,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
         }
 
         // Prevent public privilege escalation
-        const validRoles = ["student", "staff"];
+        const validRoles = ["student", "staff", "security_personnel"];
         const finalRole = validRoles.includes(role) ? role : "student";
 
         const hashedPassword = await encryptPassword(password);
@@ -71,6 +71,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
 
         if (user) {
             const token = generateToken(user.id, user.role);
+            console.log("🔑 Registration JWT Token:", token);
 
             res.cookie("jwt", token, {
                 httpOnly: true,
@@ -78,6 +79,9 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
                 sameSite: "strict", // Prevent CSRF attacks
                 maxAge:  30 * 24 * 60 * 60 * 1000,
             });
+
+            // Send Welcome Email in background
+            sendWelcomeEmail(user.email, user.username, user.role).catch(err => console.error("Welcome email background error:", err));
 
             return res.status(201).json({
                 id: user.id,
@@ -119,6 +123,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
         if (user && (await bcrypt.compare(password, user.password))) {
             const token = generateToken(user.id, user.role);
+            console.log("🔑 Login JWT Token:", token);
 
             res.cookie("jwt", token, {
                 httpOnly: true,
@@ -161,6 +166,7 @@ export const logoutUser = (req: Request, res: Response): void => {
 // @route   GET /api/users/profile
 // @access  Private
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
+    console.log("getUserProfile route hit");
     try {
         const user = await UserModal.findById(req.user?.id);
 

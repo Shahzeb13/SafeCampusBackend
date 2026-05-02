@@ -32,7 +32,14 @@ export const saveFcmToken = async (req: Request, res: Response) => {
             });
         }
 
-        // 3. Check for duplicates (don't save the same token twice)
+        // 3. Token Uniqueness: Remove this token from any other user who might have it
+        // (Handles the case of multiple accounts on one device)
+        await UserModel.updateMany(
+            { fcmTokens: token, _id: { $ne: userId } },
+            { $pull: { fcmTokens: token } }
+        );
+
+        // 4. Check if user already has this token (avoid duplicates for the same user)
         if (user.fcmTokens.includes(token)) {
             return res.status(200).json({ 
                 success: true, 
@@ -40,11 +47,11 @@ export const saveFcmToken = async (req: Request, res: Response) => {
             });
         }
 
-        // 4. Add new token to the array and save
+        // 5. Add new token to the array and save
         user.fcmTokens.push(token);
         await user.save();
 
-        console.log(`✅ FCM Token saved for user: ${user.username}`);
+        console.log(`✅ FCM Token registered to user: ${user.username}`);
 
         return res.status(200).json({ 
             success: true, 
@@ -67,6 +74,7 @@ export const saveFcmToken = async (req: Request, res: Response) => {
  * @access  Private
  */
 export const updateProfile = async (req: Request, res: Response) => {
+    console.log("updateProfile route hit");
     try {
         const userId = req.user?.id;
         if (!userId) {
@@ -141,6 +149,7 @@ export const updateProfile = async (req: Request, res: Response) => {
  * @access  Private
  */
 export const addEmergencyContact = async (req: Request, res: Response) => {
+    console.log("addEmergencyContact route hit");
     try {
         const userId = req.user?.id;
         const { name, phoneNumber } = req.body;
@@ -178,9 +187,10 @@ export const addEmergencyContact = async (req: Request, res: Response) => {
  * @access  Private
  */
 export const removeEmergencyContact = async (req: Request, res: Response) => {
+    console.log("removeEmergencyContact route hit");
     try {
         const userId = req.user?.id;
-        const index = parseInt(req.params.index);
+        const index = parseInt(req.params.index as string);
 
         const user = await UserModel.findById(userId);
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
@@ -198,6 +208,51 @@ export const removeEmergencyContact = async (req: Request, res: Response) => {
             contacts: user.personalEmergencyContacts 
         });
     } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+/**
+ * @desc    Get personal emergency contacts
+ * @route   GET /api/users/emergency-contacts
+ * @access  Private
+ */
+export const getPersonalEmergencyContacts = async (req: Request, res: Response) => {
+    console.log("getPersonalEmergencyContacts route hit");
+    try {
+        const userId = req.user?.id;
+        const user = await UserModel.findById(userId);
+        
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        return res.status(200).json({
+            success: true,
+            contacts: user.personalEmergencyContacts || []
+        });
+    } catch (error: any) {
+        console.error("Error fetching personal contacts:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const removeFcmToken = async (req: Request, res: Response) => {
+    console.log("removeFcmToken route hit");
+    try {
+        const { userId, token } = req.body;
+
+        if (!userId || !token) {
+            return res.status(400).json({ success: false, message: "User ID and Token required" });
+        }
+
+        await UserModel.findByIdAndUpdate(userId, {
+            $pull: { fcmTokens: token }
+        });
+
+        console.log(`🧹 FCM Token removed for user: ${userId}`);
+        return res.status(200).json({ success: true, message: "Token removed" });
+    } catch (error: any) {
+        console.error("❌ Error in removeFcmToken:", error.message);
         return res.status(500).json({ success: false, message: error.message });
     }
 };

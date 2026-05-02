@@ -7,6 +7,7 @@ import { logger } from "../Utils/logger.js";
 // @route   GET /api/emergency-contacts
 // @access  Public
 export const getEmergencyContacts = async (req: Request, res: Response) => {
+    console.log("getEmergencyContacts route hit");
     try {
         const contacts = await EmergencyContactModel.find().sort({ isPrimary: -1, name: 1 });
         res.status(200).json(contacts);
@@ -20,6 +21,7 @@ export const getEmergencyContacts = async (req: Request, res: Response) => {
 // @route   POST /api/emergency-contacts
 // @access  Private/Admin
 export const createEmergencyContact = async (req: Request, res: Response) => {
+    console.log("createEmergencyContact route hit");
     try {
         if (!isEmergencyContactBody(req.body)) {
             return res.status(400).json({ message: "Invalid emergency contact data" });
@@ -43,6 +45,7 @@ export const createEmergencyContact = async (req: Request, res: Response) => {
 // @route   PUT /api/emergency-contacts/:id
 // @access  Private/Admin
 export const updateEmergencyContact = async (req: Request, res: Response) => {
+    console.log("updateEmergencyContact route hit");
     try {
         const { id } = req.params;
         const contact = await EmergencyContactModel.findByIdAndUpdate(id, req.body, { new: true });
@@ -57,6 +60,7 @@ export const updateEmergencyContact = async (req: Request, res: Response) => {
 // @route   DELETE /api/emergency-contacts/:id
 // @access  Private/Admin
 export const deleteEmergencyContact = async (req: Request, res: Response) => {
+    console.log("deleteEmergencyContact route hit");
     try {
         const { id } = req.params;
         const contact = await EmergencyContactModel.findByIdAndDelete(id);

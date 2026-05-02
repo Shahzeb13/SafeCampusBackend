@@ -1,10 +1,12 @@
 import { Request, Response } from "express";
 import IncidentModel from "../Models/incidentModel.js";
+import UserModel from "../Models/userModel.js";
 import { isIncidentCreateRequest } from "../Types/TypePredicates/incidentTypePredicates.js";
 import { IMedia, IncidentCreateRequest, IncidentMulterFiles } from "../Types/incidentTypes.js";
 import { uploadOnCloudinary } from "../Utils/cloudinary.js";
 import fs from "fs";
 import { sendNotificationToUser } from "../Utils/notificationService.js";
+import { sendOTPEmail, sendWelcomeEmail, sendAssignmentEmail } from "../Utils/emailService.js";
 
 // @desc    Submit a new incident
 // @route   POST /api/incidents/uploadIncident
@@ -187,7 +189,9 @@ export const getIncidentById = async (req: Request, res: Response) => {
       query.reporter_id = user.id;
     }
 
-    const incident = await IncidentModel.findOne(query).populate("reporter_id", "username email phone");
+    const incident = await IncidentModel.findOne(query)
+      .populate("reporter_id", "username email phone")
+      .populate("assigned_to", "username email phoneNumber");
 
     if (!incident) {
       return res.status(404).json({ message: "Incident not found or not authorized" });
@@ -221,6 +225,7 @@ export const getAllIncidents = async (req: Request, res: Response) => {
 
     const incidents = await IncidentModel.find(query)
       .populate("reporter_id", "username email")
+      .populate("assigned_to", "username email")
       .sort({ createdAt: -1 });
 
     res.status(200).json(incidents);
@@ -305,5 +310,229 @@ export const updateIncidentStatus = async (req: Request, res: Response) => {
       message: "Failed to update incident status",
       error: error.message,
     });
+  }
+};
+
+// @desc    Assign an incident to a security guard
+// @route   POST /api/incidents/assign
+// @access  Private (Admin only)
+export const assignIncident = async (req: Request, res: Response) => {
+  console.log("assignIncident route hit");
+  try {
+    const user = req.user;
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+
+    const { incidentId, guardId } = req.body;
+
+    if (!incidentId || !guardId) {
+      return res.status(400).json({ success: false, message: "incidentId and guardId are required" });
+    }
+
+    // Verify guard exists and has the right role
+    const guard = await UserModel.findById(guardId);
+    if (!guard || guard.role !== "security_personnel") {
+      return res.status(400).json({ success: false, message: "Invalid security personnel ID" });
+    }
+
+    const updatedIncident = await IncidentModel.findByIdAndUpdate(
+      incidentId,
+      {
+        status: "assigned",
+        assigned_to: guardId,
+        assignmentResponse: "pending",
+        assignmentNote: null,
+      },
+      { new: true }
+    ).populate("assigned_to", "username email").populate("reporter_id", "username email");
+
+    if (!updatedIncident) {
+      return res.status(404).json({ success: false, message: "Incident not found" });
+    }
+
+    // 1. Send push notification to the security guard
+    console.log(`🔔 Attempting to notify guard: ${guard.username}`);
+    console.log(`📱 FCM Tokens found: ${guard.fcmTokens?.length || 0}`);
+
+    if (guard.fcmTokens && guard.fcmTokens.length > 0) {
+      console.log("📤 Sending FCM notification...");
+      await sendNotificationToUser(guardId, {
+        title: "🚨 New Incident Assignment",
+        body: `You have been assigned to: ${updatedIncident.title}`,
+        data: { incidentId: incidentId.toString(), type: "assignment" },
+      });
+    } else {
+      console.log("⚠️ No FCM tokens found for this guard. Skipping push notification.");
+    }
+
+    // 2. Fallback Email Notification (Guard)
+    const incidentInfo = {
+      id: updatedIncident._id.toString(),
+      title: updatedIncident.title,
+      type: updatedIncident.incidentType,
+      location: updatedIncident.locationText || "Unspecified Campus Location",
+      description: updatedIncident.description,
+      reporterName: updatedIncident.reporter_id?.username
+    };
+
+    await sendAssignmentEmail(guard.email, guard.username, incidentInfo, true);
+
+    // 3. Fallback Email Notification (Student/Reporter)
+    if (updatedIncident.reporter_id?.email) {
+      await sendAssignmentEmail(
+        updatedIncident.reporter_id.email, 
+        updatedIncident.reporter_id.username, 
+        incidentInfo, 
+        false
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Incident assigned to ${guard.username}. Notifications dispatched via FCM and Email.`,
+      data: updatedIncident,
+    });
+  } catch (error: any) {
+    console.error("Assign Incident Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to assign incident" });
+  }
+};
+
+// @desc    Security guard responds to an assignment
+// @route   POST /api/incidents/respond-assignment
+// @access  Private (Security Personnel only)
+export const respondToAssignment = async (req: Request, res: Response) => {
+  console.log("respondToAssignment route hit");
+  try {
+    const user = req.user;
+    if (!user || user.role !== "security_personnel") {
+      return res.status(403).json({ success: false, message: "Security personnel access required" });
+    }
+
+    const { incidentId, response, note } = req.body;
+
+    if (!incidentId || !response) {
+      return res.status(400).json({ success: false, message: "incidentId and response are required" });
+    }
+
+    const validResponses = ["responding", "unavailable", "completed"];
+    if (!validResponses.includes(response)) {
+      return res.status(400).json({ success: false, message: "Invalid response. Must be: responding, unavailable, or completed" });
+    }
+
+    const incident = await IncidentModel.findOne({
+      _id: incidentId,
+      assigned_to: user.id,
+    });
+
+    if (!incident) {
+      return res.status(404).json({ success: false, message: "Assignment not found or not assigned to you" });
+    }
+
+    incident.assignmentResponse = response;
+    incident.assignmentNote = note || null;
+
+    // If guard completes the incident, also resolve it
+    if (response === "completed") {
+      incident.status = "resolved";
+    }
+
+    // If guard is unavailable, reset status so admin can reassign, but keep the guard ID for history
+    if (response === "unavailable") {
+      incident.status = "pending";
+    }
+
+    await incident.save();
+
+    // Notify admin about the guard's response via broadcast to all admins
+    const admins = await UserModel.find({ role: "admin", fcmTokens: { $exists: true, $not: { $size: 0 } } });
+    const guardUser = await UserModel.findById(user.id);
+    const guardName = guardUser?.username || "Security Guard";
+
+    console.log(`📢 Notifying ${admins.length} admins about guard response: ${response}`);
+
+    for (const admin of admins) {
+      if (admin.fcmTokens && admin.fcmTokens.length > 0) {
+        console.log(`📤 Sending FCM to admin: ${admin.username} (${admin.fcmTokens.length} tokens)`);
+        await sendNotificationToUser(admin._id.toString(), {
+          title: response === "responding" ? "✅ Guard Responding" : response === "unavailable" ? "⚠️ Guard Unavailable" : "🎉 Incident Completed",
+          body: `${guardName} ${response === "responding" ? "is responding to" : response === "unavailable" ? "is unavailable for" : "has completed"}: ${incident.title}`,
+          data: { incidentId: incidentId.toString(), type: "guard_response", response },
+        });
+      } else {
+        console.log(`ℹ️ Admin ${admin.username} has no FCM tokens.`);
+      }
+    }
+
+    // If guard is responding, also notify the reporter (student)
+    if (response === "responding") {
+      console.log(`📡 Notifying reporter about guard dispatch...`);
+      const reporterIncident = await IncidentModel.findById(incidentId).populate("reporter_id");
+      const reporter = reporterIncident?.reporter_id as any;
+      if (reporter && reporter.fcmTokens && reporter.fcmTokens.length > 0) {
+        console.log(`📤 Sending FCM to reporter: ${reporter.username}`);
+        await sendNotificationToUser(reporter._id.toString(), {
+          title: "🛡️ Help is on the way!",
+          body: `A security guard has been dispatched to your incident: ${incident.title}`,
+          data: { incidentId: incidentId.toString(), type: "guard_dispatched" },
+        });
+      } else {
+        console.log(`ℹ️ Reporter has no FCM tokens.`);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Response recorded: ${response}`,
+      data: incident,
+    });
+  } catch (error: any) {
+    console.error("Respond to Assignment Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to respond to assignment" });
+  }
+};
+
+// @desc    Get all incidents assigned to the current security guard
+// @route   GET /api/incidents/my-assignments
+// @access  Private (Security Personnel only)
+export const getMyAssignments = async (req: Request, res: Response) => {
+  console.log("getMyAssignments route hit");
+  try {
+    const user = req.user;
+    if (!user || user.role !== "security_personnel") {
+      return res.status(403).json({ success: false, message: "Security personnel access required" });
+    }
+
+    const assignments = await IncidentModel.find({ assigned_to: user.id })
+      .populate("reporter_id", "username email phoneNumber")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, data: assignments });
+  } catch (error: any) {
+    console.error("Get My Assignments Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch assignments" });
+  }
+};
+
+// @desc    Get all security personnel (for admin assignment dropdown)
+// @route   GET /api/admin/security-personnel
+// @access  Private (Admin only)
+export const getSecurityPersonnel = async (req: Request, res: Response) => {
+  console.log("getSecurityPersonnel route hit");
+  try {
+    const user = req.user;
+    if (!user || user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+
+    const guards = await UserModel.find({ role: "security_personnel" })
+      .select("_id username email phoneNumber createdAt")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, data: guards });
+  } catch (error: any) {
+    console.error("Get Security Personnel Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch security personnel" });
   }
 };

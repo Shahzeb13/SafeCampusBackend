@@ -40,6 +40,19 @@ const sosSchema = new Schema<SOSDocument>(
       type: String,
       required: false,
     },
+    assigned_to: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
+    assignmentResponse: {
+      type: String,
+      enum: ['pending', 'responding', 'unavailable', 'completed'],
+      default: 'pending',
+    },
+    assignmentNote: {
+      type: String,
+    },
     acknowledgedAt: { type: Date },
     respondedAt: { type: Date },
     resolvedAt: { type: Date },

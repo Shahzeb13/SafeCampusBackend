@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema<IUser>({
     username: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ["student", "staff", "admin"], required: true },
+    role: { type: String, enum: ["student", "staff", "admin", "security_personnel"], required: true },
     avatar: { type: String, default: "" },
     // University specific fields
     rollNumber: { type: String },
