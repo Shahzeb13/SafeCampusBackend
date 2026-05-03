@@ -11,13 +11,13 @@ const sosSchema = new Schema<SOSDocument>(
     },
     status: {
       type: String,
-      enum: ['active', 'acknowledged', 'responding', 'resolved'],
+      enum: ['active', 'acknowledged', 'responding', 'resolved', 'rejected'],
       default: 'active',
       index: true,
     },
     triggerType: {
       type: String,
-      enum: ['button'],
+      enum: ['button', 'shake'],
       default: 'button',
     },
     location: {

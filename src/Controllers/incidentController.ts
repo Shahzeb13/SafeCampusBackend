@@ -6,7 +6,7 @@ import { IMedia, IncidentCreateRequest, IncidentMulterFiles } from "../Types/inc
 import { uploadOnCloudinary } from "../Utils/cloudinary.js";
 import fs from "fs";
 import { sendNotificationToUser } from "../Utils/notificationService.js";
-import { sendOTPEmail, sendWelcomeEmail, sendAssignmentEmail } from "../Utils/emailService.js";
+import { sendOTPEmail, sendWelcomeEmail, sendAssignmentEmail, sendRejectionEmail } from "../Utils/emailService.js";
 
 // @desc    Submit a new incident
 // @route   POST /api/incidents/uploadIncident
@@ -264,7 +264,7 @@ export const getIncidentsForRadar = async (req: Request, res: Response) => {
 export const updateIncidentStatus = async (req: Request, res: Response) => {
   console.log("updateIncidentStatus route hit");
   try {
-    const { incidentId, status } = req.body;
+    const { incidentId, status, rejectionReason } = req.body;
 
     if (!incidentId || !status) {
       return res.status(400).json({ 
@@ -296,6 +296,20 @@ export const updateIncidentStatus = async (req: Request, res: Response) => {
         title: "Incident Update",
         body: `Your incident status is now ${status}`,
       });
+    }
+
+    // If status is rejected, send rejection email
+    if (status === "rejected" && reporter && reporter.email) {
+      await sendRejectionEmail(
+        reporter.email,
+        reporter.username,
+        {
+          title: updatedIncident.title,
+          type: updatedIncident.incidentType,
+          reason: rejectionReason
+        },
+        false
+      );
     }
 
     return res.status(200).json({

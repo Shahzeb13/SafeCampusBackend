@@ -289,3 +289,78 @@ export const sendSOSAssignmentEmail = async (
         console.error('❌ Error sending SOS assignment email:', error);
     }
 };
+
+export const sendRejectionEmail = async (
+    recipientEmail: string, 
+    recipientName: string, 
+    itemData: { title: string; type: string; reason?: string },
+    isSOS: boolean = false
+) => {
+    const subject = isSOS 
+        ? `⚠️ SOS Alert Update: Declined` 
+        : `⚠️ Incident Report Update: Declined`;
+
+    const htmlContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 16px; overflow: hidden; background-color: #ffffff; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <div style="background-color: #374151; padding: 40px 20px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px;">
+                    ${isSOS ? 'SOS ALERT DECLINED' : 'INCIDENT DECLINED'}
+                </h1>
+                <p style="color: rgba(255,255,255,0.9); margin-top: 10px;">
+                    Review complete by Campus Administration
+                </p>
+            </div>
+            
+            <div style="padding: 30px; line-height: 1.6; color: #333333;">
+                <h2 style="color: #111827; margin-bottom: 20px;">Hello ${recipientName},</h2>
+                
+                <p style="font-size: 16px;">
+                    Your ${isSOS ? 'SOS alert' : 'incident report'} has been reviewed by our administration team. At this time, we have decided to decline/reject this request.
+                </p>
+
+                <div style="background-color: #f9fafb; border-left: 4px solid #374151; padding: 25px; margin: 25px 0; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #111827; font-size: 18px; text-transform: uppercase;">Details</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280; width: 120px;"><strong>Title/Type:</strong></td>
+                            <td style="padding: 8px 0;">${itemData.title || itemData.type.replace(/_/g, ' ')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #6b7280;"><strong>Status:</strong></td>
+                            <td style="padding: 8px 0;"><span style="background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-weight: bold;">REJECTED</span></td>
+                        </tr>
+                    </table>
+                    
+                    ${itemData.reason ? `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                        <strong style="color: #6b7280; display: block; margin-bottom: 5px;">Reason for Rejection:</strong>
+                        <p style="margin: 0; font-style: italic; color: #111827;">"${itemData.reason}"</p>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <p style="color: #4b5563; font-size: 14px;">
+                    If you believe this is an error, please contact the campus security office directly or visit the administrative portal. In case of a life-threatening emergency, always contact local emergency services immediately.
+                </p>
+            </div>
+
+            <div style="background-color: #f3f4f6; padding: 25px; text-align: center; font-size: 12px; color: #6b7280;">
+                <p><strong>SafeCampus Security Administration</strong></p>
+                <p>© 2026 SafeCampus Inc. | Protecting what matters most.</p>
+                <p style="margin-top: 10px; color: #9ca3af;">This is an automated administrative notification. Do not reply to this email.</p>
+            </div>
+        </div>
+    `;
+
+    try {
+        await transporter.sendMail({
+            from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus Admin'}" <${process.env.MAIL_FROM_ADDRESS}>`,
+            to: recipientEmail,
+            subject: subject,
+            html: htmlContent,
+        });
+        console.log(`📧 Rejection email sent to ${recipientEmail}`);
+    } catch (error) {
+        console.error('❌ Error sending rejection email:', error);
+    }
+};

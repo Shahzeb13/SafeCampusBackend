@@ -4,7 +4,7 @@ import UserModel from '../Models/userModel.js';
 import { isValidSOSRequest } from '../Types/TypePredicates/isValidSOSRequest.js';
 import { sendNotificationToUser } from '../Utils/notificationService.js';
 import { broadcastEmergencyAlert } from '../Utils/smsService.js';
-import { sendSOSAssignmentEmail } from '../Utils/emailService.js';
+import { sendSOSAssignmentEmail, sendRejectionEmail } from '../Utils/emailService.js';
 
 export const createSOS = async (req: Request, res: Response) => {
   console.log("CreateSos controller hit")
@@ -16,7 +16,7 @@ export const createSOS = async (req: Request, res: Response) => {
       });
     }
 
-    const { location, note } = req.body;
+    const { location, note, triggerType } = req.body;
 
     // req.user is populated by verifyJwtToken middleware
     const userId = req.user?.id;
@@ -36,7 +36,7 @@ export const createSOS = async (req: Request, res: Response) => {
       },
       note,
       status: 'active',
-      triggerType: 'button',
+      triggerType: triggerType || 'button',
     });
 
     await newSOS.save();
@@ -94,9 +94,9 @@ export const updateSOSStatus = async (req: Request, res: Response) => {
   console.log("updatasos hit")
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, rejectionReason } = req.body;
 
-    const validStatuses = ['active', 'acknowledged', 'responding', 'resolved'];
+    const validStatuses = ['active', 'acknowledged', 'responding', 'resolved', 'rejected'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
@@ -129,17 +129,30 @@ export const updateSOSStatus = async (req: Request, res: Response) => {
 
     // Email notification on status change (Email Fallback)
     if (user && user.email) {
-        await sendSOSAssignmentEmail(
-            user.email,
-            user.username,
-            {
-                id: updatedSOS._id.toString(),
-                user: user.username,
-                location: `${updatedSOS.location.latitude}, ${updatedSOS.location.longitude}`,
-                status: status
-            },
-            false // It's for the student
-        );
+        if (status === 'rejected') {
+            await sendRejectionEmail(
+                user.email,
+                user.username,
+                {
+                    title: 'SOS Alert',
+                    type: 'sos_emergency',
+                    reason: rejectionReason
+                },
+                true
+            );
+        } else {
+            await sendSOSAssignmentEmail(
+                user.email,
+                user.username,
+                {
+                    id: updatedSOS._id.toString(),
+                    user: user.username,
+                    location: `${updatedSOS.location.latitude}, ${updatedSOS.location.longitude}`,
+                    status: status
+                },
+                false // It's for the student
+            );
+        }
     }
 
     return res.status(200).json({

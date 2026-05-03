@@ -11,13 +11,14 @@ import emergencyContactRoutes from "./Routes/emergencyContactRoutes.js";
 import sosRoutes from "./Routes/sosRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import userRoutes from "./Routes/userRoutes.js";
+import chatRoutes from "./Routes/chatRoutes.js";
 import { fancyRequestLogger } from "./Middlewares/fancyLogger.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 /* ---------- MIDDLEWARE ---------- */
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: ["http://localhost:3000", "http://localhost:3001" , "http://192.168.1.77:5173"],
   credentials: true,
 }));
 app.use(express.json());
@@ -38,6 +39,7 @@ app.use("/api/emergency-contacts", emergencyContactRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/api/test-server", (req: Request, res: Response) => {
   logger.info("Test Server Route hit")
@@ -55,10 +57,15 @@ app.get("/", (req: Request, res: Response) => {
   });
 });
 
+import { initSocket } from './Socket/socketManager.js';
+
 /* ---------- START SERVER ---------- */
 const server = app.listen(PORT, () => {
   logger.startup(PORT);
 });
+
+// Initialize Socket.io
+initSocket(server);
 
 server.timeout = 300000; // 5 minutes recorded timeout for large file uploads
 
