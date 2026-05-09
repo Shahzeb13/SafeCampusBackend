@@ -1,11 +1,14 @@
+import { Types } from "mongoose";
+
 export interface IUser {
     username: string;
     email: string;
     password: string;
-    role: "student" | "staff" | "admin" | "security_personnel";
+    role: "student" | "staff" | "admin" | "security_personnel" | "super_admin";
     avatar?: string | null;
     rollNumber?: string;
     universityName?: string;
+    campusId?: Types.ObjectId; // Link to the campus
     departmentName?: string;
     program?: string;
     semester?: string;
@@ -19,9 +22,6 @@ export interface IUser {
     updatedAt?: Date;
 }
 
-
-
-
 export interface UserRegistrationRequest {
   username: string;
   email: string;
@@ -30,6 +30,7 @@ export interface UserRegistrationRequest {
   avatar?: string | null;
   rollNumber?: string;
   universityName?: string;
+  campusId?: string;
   departmentName?: string;
   program?: string;
   semester?: string;

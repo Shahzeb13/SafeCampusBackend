@@ -1,4 +1,7 @@
 export type jwtPayLoad = {
   id: string;
-  role: "student" | "staff" | "admin" | "security_personnel";
+
+
+  role: "student" | "staff" | "campus_admin" | "security_personnel" | "super_admin" | "security_incharge" | "security_guard" | "organization_owner";
 };
+

@@ -67,3 +67,24 @@ export const getIO = () => {
   }
   return io;
 };
+
+
+
+//ALgortithm for socket programing
+// 1. Create socket
+// 2. Bind socket to IP + port
+// 3. Listen for clients
+// 4. Accept client connection
+// 5. Send/receive data
+
+
+// server socket is the listerning socket and client socket is the one who connects
+// Server machine:
+// IP: 192.168.1.10
+// Port: 5000
+// Socket: listens on 192.168.1.10:5000
+
+// Client machine:
+// IP: 192.168.1.20
+// Random port: 54032
+// Socket: connects to 192.168.1.10:5000

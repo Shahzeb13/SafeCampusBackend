@@ -13,6 +13,7 @@ export interface ISOS {
   userId: Types.ObjectId;
   status: SOSStatus;
   triggerType: SOSTriggerType;
+  campusId: Types.ObjectId;
   location: {
     latitude: number;
     longitude: number;

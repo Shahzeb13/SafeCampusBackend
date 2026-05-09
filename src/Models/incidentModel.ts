@@ -49,6 +49,7 @@ const incidentSchema = new Schema<IIncident>(
       resourceType: { type: String },
     },
     voiceDuration: { type: String },
+    campusId: { type: Schema.Types.ObjectId, ref: "campus", required: true },
     status: {
       type: String,
       enum: ["pending", "under_review", "assigned", "resolved", "rejected"],

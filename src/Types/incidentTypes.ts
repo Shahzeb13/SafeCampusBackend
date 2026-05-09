@@ -42,6 +42,7 @@ export interface IIncident {
   video?: IMedia | null;
   audio?: IMedia | null;
   voiceDuration?: string;
+  campusId: Types.ObjectId;
   status: IncidentStatus;
   assigned_to?: Types.ObjectId | null;
   assignmentResponse?: AssignmentResponse | null;

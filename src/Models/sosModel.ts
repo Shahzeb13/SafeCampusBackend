@@ -20,6 +20,12 @@ const sosSchema = new Schema<SOSDocument>(
       enum: ['button', 'shake'],
       default: 'button',
     },
+    campusId: {
+      type: Schema.Types.ObjectId,
+      ref: 'campus',
+      required: true,
+      index: true,
+    },
     location: {
       latitude: { type: Number, required: true },
       longitude: { type: Number, required: true },

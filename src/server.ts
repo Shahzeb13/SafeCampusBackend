@@ -12,6 +12,7 @@ import sosRoutes from "./Routes/sosRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import userRoutes from "./Routes/userRoutes.js";
 import chatRoutes from "./Routes/chatRoutes.js";
+import landingRoutes from "./Routes/landingRoutes.js";
 import { fancyRequestLogger } from "./Middlewares/fancyLogger.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +41,7 @@ app.use("/api/sos", sosRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/landing", landingRoutes);
 
 app.get("/api/test-server", (req: Request, res: Response) => {
   logger.info("Test Server Route hit")

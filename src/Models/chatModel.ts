@@ -43,3 +43,9 @@ chatSchema.index({ participants: 1 });
 const ChatModel: Model<IChat> = mongoose.model<IChat>('Chat', chatSchema);
 
 export default ChatModel;
+
+
+
+// Remember this
+// Give me conversation where I am a participant.
+// Then give me messages from that conversation.

@@ -364,3 +364,59 @@ export const sendRejectionEmail = async (
         console.error('❌ Error sending rejection email:', error);
     }
 };
+
+export const sendLeadEmail = async (leadData: { name: string; email: string; institution: string; message: string }) => {
+    // 1. Email to the User (Confirmation)
+    const userMailOptions = {
+        from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus Team'}" <${process.env.MAIL_FROM_ADDRESS}>`,
+        to: leadData.email,
+        subject: 'We received your SafeCampus request! 🛡️',
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 20px; background-color: #fcfdfd;">
+                <h2 style="color: #00875A; text-align: center;">Hello ${leadData.name},</h2>
+                <p>Thank you for reaching out to SafeCampus! We have received your request for <strong>${leadData.institution}</strong>.</p>
+                <p>Our team is currently reviewing your details, and a representative will contact you shortly to discuss how we can help secure your campus.</p>
+                <div style="background-color: #e6f3ef; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                    <p style="margin: 0; color: #006b44;"><strong>What's next?</strong></p>
+                    <p style="margin: 5px 0 0; font-size: 14px;">We'll reach out via this email address to schedule a personalized demo.</p>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="font-size: 12px; color: #888; text-align: center;">SafeCampus - Empowering Institutions with Real-Time Safety</p>
+            </div>
+        `,
+    };
+
+    // 2. Email to the Super Admin (Notification)
+    const adminMailOptions = {
+        from: `"SafeCampus Lead Bot" <${process.env.MAIL_FROM_ADDRESS}>`,
+        to: process.env.SUPER_ADMIN_EMAIL || process.env.MAIL_FROM_ADDRESS, // Fallback to from address
+        subject: `🚨 NEW LEAD: ${leadData.institution}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 2px solid #00875A; border-radius: 20px;">
+                <h2 style="color: #00875A;">New Institutional Request</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Name:</strong></td><td style="padding: 10px 0; border-bottom: 1px solid #eee;">${leadData.name}</td></tr>
+                    <tr><td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Institution:</strong></td><td style="padding: 10px 0; border-bottom: 1px solid #eee;">${leadData.institution}</td></tr>
+                    <tr><td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Email:</strong></td><td style="padding: 10px 0; border-bottom: 1px solid #eee;">${leadData.email}</td></tr>
+                </table>
+                <div style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px;">
+                    <strong>Message:</strong><br/>
+                    <p style="font-style: italic;">"${leadData.message}"</p>
+                </div>
+                <div style="margin-top: 30px; text-align: center;">
+                    <a href="${process.env.ADMIN_DASHBOARD_URL || '#'}/leads" style="background: #00875A; color: #fff; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold;">View in Dashboard</a>
+                </div>
+            </div>
+        `,
+    };
+
+    try {
+        await Promise.all([
+            transporter.sendMail(userMailOptions),
+            transporter.sendMail(adminMailOptions)
+        ]);
+        console.log(`Lead emails sent for ${leadData.email}`);
+    } catch (error) {
+        console.error('Error sending lead emails:', error);
+    }
+};

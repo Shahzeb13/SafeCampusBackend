@@ -5,11 +5,22 @@ const userSchema = new mongoose.Schema<IUser>({
     username: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ["student", "staff", "admin", "security_personnel"], required: true },
+    role: {
+  enum: [
+    "super_admin",
+    "organization_owner",
+    "campus_admin",
+    "security_incharge",
+    "security_guard",
+    "student",
+    "staff"
+  ]
+},
     avatar: { type: String, default: "" },
     // University specific fields
     rollNumber: { type: String },
     universityName: { type: String },
+    campusId: { type: mongoose.Schema.Types.ObjectId, ref: "campus" },
     departmentName: { type: String },
     program: { type: String },
     semester: { type: String },
