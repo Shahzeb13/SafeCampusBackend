@@ -1,12 +1,14 @@
 import { Request, Response } from "express";
 import IncidentModel from "../Models/incidentModel.js";
 import UserModel from "../Models/userModel.js";
+import campusModel from "../Models/campusModel.js";
 import { isIncidentCreateRequest } from "../Types/TypePredicates/incidentTypePredicates.js";
 import { IMedia, IncidentCreateRequest, IncidentMulterFiles } from "../Types/incidentTypes.js";
 import { uploadOnCloudinary } from "../Utils/cloudinary.js";
 import fs from "fs";
 import { sendNotificationToUser } from "../Utils/notificationService.js";
 import { sendOTPEmail, sendWelcomeEmail, sendAssignmentEmail, sendRejectionEmail } from "../Utils/emailService.js";
+import { isAdminLike, isSuperAdmin } from "../Types/TypePredicates/roleHelpers.js";
 
 // @desc    Submit a new incident
 // @route   POST /api/incidents/uploadIncident
@@ -21,7 +23,7 @@ export const createIncident = async (req: Request, res: Response) => {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    if (user.role === "admin") {
+    if (isAdminLike(user.role)) {
       return res.status(403).json({ message: "Admins cannot submit incidents" });
     }
 
@@ -117,6 +119,22 @@ export const createIncident = async (req: Request, res: Response) => {
       }
     }
 
+    // ==================================================
+    // TENANT SAFETY — Pull org/campus from the JWT (set during login)
+    // ==================================================
+    const organizationId = user.organizationId;
+    const campusId = user.campusId;
+
+    if (!organizationId || !campusId) {
+      return res.status(403).json({ message: "Your account is not linked to an organization or campus." });
+    }
+
+    // Verify the campus actually belongs to the user's organization
+    const campus = await campusModel.findOne({ _id: campusId, organizationId });
+    if (!campus) {
+      return res.status(403).json({ message: "Campus does not belong to your organization. Incident submission denied." });
+    }
+
     const newIncident = new IncidentModel({
       reporter_id: user.id,
       reporter_role: user.role,
@@ -130,6 +148,8 @@ export const createIncident = async (req: Request, res: Response) => {
       video: mediaResults.video,
       audio: mediaResults.audio,
       voiceDuration,
+      organizationId,
+      campusId,
       status: "pending",
     });
 
@@ -185,7 +205,7 @@ export const getIncidentById = async (req: Request, res: Response) => {
     const query: any = { _id: (req as any).params.id };
     
     // If not admin, restrict fetch to ONLY incidents they reporter
-    if (user.role !== "admin") {
+    if (!isAdminLike(user.role)) {
       query.reporter_id = user.id;
     }
 
@@ -211,16 +231,32 @@ export const getAllIncidents = async (req: Request, res: Response) => {
   console.log("getAllIncidents route hit");
   try {
     const user = req.user;
-    if (!user || user.role !== "admin") {
-      return res.status(403).json({ message: "Not authorized as admin" });
+    if (!user || !isAdminLike(user.role)) {
+      return res.status(403).json({ message: "Not authorized" });
     }
 
     const { type } = req.query;
-    
-    // Build filter query
+
+    // ==================================================
+    // TENANT-SAFE QUERY FILTER based on role
+    // ==================================================
     let query: any = {};
+
+    if (isSuperAdmin(user.role)) {
+      // super_admin: can see all — optionally filter by org/campus from query params
+      if (req.query.organizationId) query.organizationId = req.query.organizationId;
+      if (req.query.campusId) query.campusId = req.query.campusId;
+    } else if (user.role === "organization_owner") {
+      // org_owner: sees all campuses under their org
+      query.organizationId = user.organizationId;
+    } else {
+      // campus_admin, security_incharge, etc.: scoped to their campus
+      query.organizationId = user.organizationId;
+      query.campusId = user.campusId;
+    }
+
     if (type && type !== "all") {
-       query.incidentType = type;
+      query.incidentType = type;
     }
 
     const incidents = await IncidentModel.find(query)
@@ -334,7 +370,7 @@ export const assignIncident = async (req: Request, res: Response) => {
   console.log("assignIncident route hit");
   try {
     const user = req.user;
-    if (!user || user.role !== "admin") {
+    if (!user || !isAdminLike(user.role)) {
       return res.status(403).json({ success: false, message: "Admin access required" });
     }
 
@@ -460,7 +496,12 @@ export const respondToAssignment = async (req: Request, res: Response) => {
     await incident.save();
 
     // Notify admin about the guard's response via broadcast to all admins
-    const admins = await UserModel.find({ role: "admin", fcmTokens: { $exists: true, $not: { $size: 0 } } });
+    const admins = await UserModel.find({ 
+      role: "campus_admin", 
+      organizationId: updatedIncident.organizationId,
+      campusId: updatedIncident.campusId,
+      fcmTokens: { $exists: true, $not: { $size: 0 } } 
+    });
     const guardUser = await UserModel.findById(user.id);
     const guardName = guardUser?.username || "Security Guard";
 
@@ -536,7 +577,7 @@ export const getSecurityPersonnel = async (req: Request, res: Response) => {
   console.log("getSecurityPersonnel route hit");
   try {
     const user = req.user;
-    if (!user || user.role !== "admin") {
+    if (!user || !isAdminLike(user.role)) {
       return res.status(403).json({ success: false, message: "Admin access required" });
     }
 

@@ -8,7 +8,9 @@
     "typeCheck": "tsc --noEmit",
     "build": "tsc",
     "start": "node dist/server.js",
-    "seed:admin": "tsx src/Utils/seedAdmin.ts"
+    "seed:admin": "tsx src/Utils/seedAdmin.ts",
+    "db:drop": "tsx scripts/dropDatabase.ts",
+    "db:drop:yes": "tsx scripts/dropDatabase.ts --yes"
   },
   "keywords": [],
   "author": "",

@@ -14,7 +14,7 @@ const seedSuperAdmin = async () => {
 
     // 2. Define the exact superadmin credentials
     // Note: Do NOT commit this to public GitHub repos with real passwords in production.
-    const adminEmail = "superadmin@safecampus.com";
+    const adminEmail = "safecampus7@gmail.com";
     const adminPassword = "SuperSecurePassword123!"; 
 
     // 3. Check if the admin already exists
@@ -33,14 +33,8 @@ const seedSuperAdmin = async () => {
       username: "superadmin",
       email: adminEmail,
       password: hashedPassword,
-      role: "admin", 
-      // Required fallback fields to satisfy your UserSchema if needed
-      rollNumber: "ADMIN-001",
-      universityName: "System",
-      departmentName: "Administration",
-      program: "N/A",
-      semester: "N/A",
-      section: "N/A"
+      role: "super_admin",
+      status: "active",
     });
 
     console.log(`✅ Success! SuperAdmin created.`);

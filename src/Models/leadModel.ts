@@ -15,6 +15,12 @@ const leadSchema = new mongoose.Schema<ILead>({
     email: { type: String, required: true },
     message: { type: String, required: true },
     status: { type: String, enum: ["pending", "contacted", "closed"], default: "pending" },
+    // Set when a lead is converted into a real organization
+    convertedOrganizationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Organization",
+        default: null,
+    },
     createdAt: { type: Date, default: Date.now }
 });
 

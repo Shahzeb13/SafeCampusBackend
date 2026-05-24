@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import Organization from "../Models/organizationModel.js";
 import { isOrganization } from "../Types/TypePredicates/organizationPredicate.js";
+import { isSuperAdmin, isOrganizationOwner } from "../Types/TypePredicates/roleHelpers.js";
+import { validateEmail } from "../Utils/ValidateAuthData.js";
 
 
 
@@ -11,8 +13,13 @@ import { isOrganization } from "../Types/TypePredicates/organizationPredicate.js
  */
 export const createOrganization = async (req: Request, res: Response) => {
   try {
+    console.log("createOrganization route hit");
     const data = req.body;
-
+    const isEmailValid = validateEmail(data.contactEmail);
+    if (!isEmailValid.ok) {
+        res.status(400).json({ success: false, message: isEmailValid.reason })
+        return;
+    }
     // 1. Validate incoming data using the Type Predicate!
     if (!isOrganization(data)) {
       return res.status(400).json({ 
@@ -40,13 +47,15 @@ export const createOrganization = async (req: Request, res: Response) => {
     }
 
     const loggedInUserRole = req.user?.role;
-    const isSuperAdmin = loggedInUserRole === "super_admin" ? true : false;
-    if(!isSuperAdmin){
+    if(loggedInUserRole !== undefined){
+        if(!isSuperAdmin(loggedInUserRole)){
       return res.status(401).json({
         success: false,
-        message: "Current Logged In user does not have the authority to create an organization";
+        message: "Current Logged In user does not have the authority to create an organization"
       })
     }
+    }
+  
 
 
     // 4. Save to Database
@@ -113,6 +122,81 @@ export const getOrganizationBySlug = async (req: Request, res: Response) => {
 };
 
 /**
+ * @desc    Update an organization
+ * @route   PUT /api/organizations/:id
+ * @access  Private (Super Admin or Organization Owner)
+ */
+export const updateOrganization = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Unauthorized. User context missing." });
+    }
+
+    // 1. Authorization Check
+    const isSuper = isSuperAdmin(user.role);
+    const isOrgOwner = isOrganizationOwner(user.role) && user.organizationId === id;
+
+    if (!isSuper && !isOrgOwner) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Only Super Admins or the Organization Owner can update this record." 
+      });
+    }
+
+    // 2. Prevent sensitive field updates by non-SuperAdmins
+    if (!isSuper) {
+      delete updateData.slug; // Owners shouldn't change slugs usually (breaks URLs)
+      delete updateData.status;
+      delete updateData.ownerUserId;
+      delete updateData.createdBy;
+    }
+
+    // 3. If slug is being updated, check for uniqueness
+    if (updateData.slug) {
+      const existingWithSlug = await Organization.findOne({ 
+        slug: updateData.slug, 
+        _id: { $ne: id } 
+      });
+      if (existingWithSlug) {
+        return res.status(409).json({ 
+          success: false, 
+          message: `The slug '${updateData.slug}' is already taken by another organization.` 
+        });
+      }
+    }
+
+    // 4. Perform Update
+    const updatedOrg = await Organization.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedOrg) {
+      return res.status(404).json({ success: false, message: "Organization not found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Organization updated successfully.",
+      data: updatedOrg
+    });
+
+  } catch (error: any) {
+    console.error("Error in updateOrganization:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error.", 
+      error: error.message 
+    });
+  }
+};
+
+/**
  * @desc    Delete an organization
  * @route   DELETE /api/organizations/:id
  * @access  Private (Super Admin only)
@@ -120,6 +204,15 @@ export const getOrganizationBySlug = async (req: Request, res: Response) => {
 export const deleteOrganization = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const user = req.user;
+
+    if (!user || !isSuperAdmin(user.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Only Super Admins can delete an organization." 
+      });
+    }
+
     const deletedOrg = await Organization.findByIdAndDelete(id);
 
     if (!deletedOrg) {

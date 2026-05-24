@@ -2,6 +2,7 @@ import {Request, Response , NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { jwtPayLoad } from "../Types/jwtPayloadType.js";
 import { isValidJwtPayload } from "../Types/TypePredicates/isValidJwtPayload.js";
+import { isAdminLike } from "../Types/TypePredicates/roleHelpers.js";
 //I leaned tht htere are two type of request and respnose object
 // Dom Fetch ap request/response and express request/response
 
@@ -47,7 +48,7 @@ export function verifyJwtToken(req: Request , res: Response , next: NextFunction
 }
 
 export function isAdmin(req: Request, res: Response, next: NextFunction) {
-    if (req.user && req.user.role === "admin") {
+    if (req.user && isAdminLike(req.user.role)) {
         next();
     } else {
         res.status(403).json({ success: false, message: "Not Authorized! Admin access required" });

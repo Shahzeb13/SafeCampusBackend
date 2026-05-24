@@ -42,6 +42,8 @@ export interface IIncident {
   video?: IMedia | null;
   audio?: IMedia | null;
   voiceDuration?: string;
+  // SaaS multi-tenant
+  organizationId: Types.ObjectId; // TODO: backfill for old incidents via backfillOrganizationId.ts
   campusId: Types.ObjectId;
   status: IncidentStatus;
   assigned_to?: Types.ObjectId | null;

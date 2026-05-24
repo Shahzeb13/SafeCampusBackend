@@ -1,7 +1,7 @@
 import { Document, Types } from 'mongoose';
 
-export type SOSStatus = 'active' | 'acknowledged' | 'responding' | 'resolved';
-export type SOSTriggerType = 'button';
+export type SOSStatus = 'active' | 'acknowledged' | 'responding' | 'resolved' | 'rejected';
+export type SOSTriggerType = 'button' | 'shake';
 
 export interface LocationPoint {
   latitude: number;
@@ -13,6 +13,8 @@ export interface ISOS {
   userId: Types.ObjectId;
   status: SOSStatus;
   triggerType: SOSTriggerType;
+  // SaaS multi-tenant
+  organizationId: Types.ObjectId; // TODO: backfill for old SOS records via backfillOrganizationId.ts
   campusId: Types.ObjectId;
   location: {
     latitude: number;

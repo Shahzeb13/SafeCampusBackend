@@ -33,6 +33,9 @@ app.use(cookieParser());
 await connectToMongoDB();
 /* ---------- ROUTES ---------- */
 
+import organizationRoutes from "./Routes/organizationRoutes.js";
+import campusRoutes from "./Routes/campusRoutes.js";
+
 app.use("/api/auth", authRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/notifications", notificationRoutes);
@@ -42,6 +45,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/landing", landingRoutes);
+app.use("/api/organizations", organizationRoutes);
+app.use("/api/campuses", campusRoutes);
 
 app.get("/api/test-server", (req: Request, res: Response) => {
   logger.info("Test Server Route hit")

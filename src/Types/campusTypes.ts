@@ -72,7 +72,8 @@ export interface CampusUpdateRequest {
     allowStudentRegistration?: boolean;
     allowStaffRegistration?: boolean;
     requireAdminApprovalForUsers?: boolean;
-
   };
+  organizationId?: any;
+  createdBy?: any;
 }
 // Note rto remember : Added campusId to IIncident in incidentTypes.ts and ISOS in sosTypes.ts.

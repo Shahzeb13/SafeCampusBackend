@@ -21,8 +21,11 @@ const messageSchema = new Schema<IMessage>({
  * Chat Conversation Schema (General Collection)
  */
 export interface IChat extends Document {
+  // SaaS multi-tenant
+  organizationId: mongoose.Types.ObjectId; // TODO: backfill old chats via scripts/backfillOrganizationId.ts
+  campusId: mongoose.Types.ObjectId;
   participants: mongoose.Types.ObjectId[];
-  messages: IMessage[]; // Sub-collection (nested array)
+  messages: IMessage[];
   lastMessage: string;
   updatedAt: Date;
   createdAt: Date;
@@ -30,6 +33,19 @@ export interface IChat extends Document {
 
 const chatSchema = new Schema<IChat>(
   {
+    // SaaS multi-tenant
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: true,
+      index: true,
+    },
+    campusId: {
+      type: Schema.Types.ObjectId,
+      ref: 'campus',
+      required: true,
+      index: true,
+    },
     participants: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
     messages: [messageSchema],
     lastMessage: { type: String },
@@ -37,13 +53,13 @@ const chatSchema = new Schema<IChat>(
   { timestamps: true }
 );
 
-// Index for faster lookup of conversations by participants
+// Composite tenant-safe indexes
+chatSchema.index({ organizationId: 1, campusId: 1 });
 chatSchema.index({ participants: 1 });
 
 const ChatModel: Model<IChat> = mongoose.model<IChat>('Chat', chatSchema);
 
 export default ChatModel;
-
 
 
 // Remember this

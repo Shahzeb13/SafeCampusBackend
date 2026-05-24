@@ -108,7 +108,7 @@ const organizationSchema = new Schema<IOrganization>(
   }
 );
 
-organizationSchema.index({ slug: 1 }, { unique: true });
+// organizationSchema.index({ slug: 1 }, { unique: true });
 organizationSchema.index({ status: 1 });
 
 const Organization =

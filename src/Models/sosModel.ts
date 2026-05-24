@@ -20,6 +20,14 @@ const sosSchema = new Schema<SOSDocument>(
       enum: ['button', 'shake'],
       default: 'button',
     },
+    // SaaS multi-tenant
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: true,
+      index: true,
+      // TODO: backfill old SOS records without organizationId via scripts/backfillOrganizationId.ts
+    },
     campusId: {
       type: Schema.Types.ObjectId,
       ref: 'campus',
@@ -68,8 +76,11 @@ const sosSchema = new Schema<SOSDocument>(
   }
 );
 
-// Optional: Add index for performance on critical lookups
-sosSchema.index({ createdAt: -1 });
+// Composite tenant-safe indexes
+sosSchema.index({ organizationId: 1, campusId: 1, status: 1 });
+sosSchema.index({ organizationId: 1, campusId: 1, createdAt: -1 });
+// sosSchema.index({ userId: 1 });
+// sosSchema.index({ assigned_to: 1 });
 
 const SOSModel: Model<SOSDocument> = mongoose.model<SOSDocument>('SOS', sosSchema);
 

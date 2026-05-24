@@ -1,34 +1,32 @@
 
 import { Request, Response } from "express";
 import UserModal from "../Models/userModel.js";
+import campusModel from "../Models/campusModel.js";
+import Organization from "../Models/organizationModel.js";
 import generateToken from "../Utils/generateToken.js";
 import bcrypt from "bcrypt";
 import { encryptPassword } from "../Utils/hashPassword.js";
-import {  isValidUserRegistrationRequest } from "../Types/TypePredicates/isValidUserRegistrationRequest.js";
+import { isValidUserRegistrationRequest } from "../Types/TypePredicates/isValidUserRegistrationRequest.js";
 import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
 import { sendOTPEmail, sendWelcomeEmail } from "../Utils/emailService.js";
 import crypto from "crypto";
-
-
+import { Role } from "../Types/userTypes.js";
 
 
 export const registerUser = async (req: Request, res: Response): Promise<Response | void> => {
     console.log("User Registration Route hit");
     try {
-        
+
         const body = req.body;
         const isBodyValid = isValidUserRegistrationRequest(body);
         if (!isBodyValid) {
             return res.status(400).json({ success: false, message: "User ,You are sending Invalid data. " })
-
         };
 
-
-        body
-
-        const { 
+        const {
             username, email, password, role, avatar,
-            rollNumber, universityName, departmentName, program, semester, section 
+            rollNumber, universityName, departmentName, program, semester, section,
+            organizationId, campusId
         } = body;
 
         const isUsernameValid = validateUsername(username);
@@ -41,43 +39,90 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
             return res.status(400).json({ success: false, message: isEmailValid.reason })
         }
 
-
         const userExists = await UserModal.findOne({ email });
-
         if (userExists) {
             res.status(400).json({ message: "User already exists" });
             return;
         }
 
-        // Prevent public privilege escalation
-        const validRoles = ["student", "staff", "security_personnel"];
-        const finalRole = validRoles.includes(role) ? role : "student";
+        // Prevent public privilege escalation — only campus-level roles allowed on public registration
+        const allowedPublicRoles: Role[] = ["student", "staff", "security_personnel"];
+        const finalRole: Role = allowedPublicRoles.includes(role as Role) ? (role as Role) : "student";
+
+        // ==================================================
+        // ORGANIZATION-AWARE REGISTRATION (SaaS)
+        // If organizationId is provided, apply organization settings
+        // ==================================================
+        let userStatus: "pending" | "active" = "active";
+
+        if (organizationId) {
+            // 1. Fetch the organization and check if it exists and is active
+            const organization = await Organization.findById(organizationId);
+            if (!organization) {
+                return res.status(400).json({ success: false, message: "Organization not found." });
+            }
+            if (organization.status !== "active") {
+                return res.status(403).json({ success: false, message: "This organization is not currently accepting registrations." });
+            }
+
+            // 2. Check organization-level self-registration setting
+            if (!organization.settings?.allowSelfRegistration) {
+                return res.status(403).json({ success: false, message: "Self-registration is not allowed for this organization." });
+            }
+
+            // 3. Check role-specific registration settings
+            if (finalRole === "student" && !organization.settings?.allowStudentRegistration) {
+                return res.status(403).json({ success: false, message: "Student registration is not currently allowed." });
+            }
+            if (finalRole === "staff" && !organization.settings?.allowStaffRegistration) {
+                return res.status(403).json({ success: false, message: "Staff registration is not currently allowed." });
+            }
+
+            // 4. Verify campus belongs to this organization
+            if (campusId) {
+                const campus = await campusModel.findOne({ _id: campusId, organizationId });
+                if (!campus) {
+                    return res.status(400).json({ success: false, message: "Selected campus does not belong to your organization." });
+                }
+            }
+
+            // 5. Determine user status based on admin approval setting
+            userStatus = organization.settings?.requireAdminApproval ? "pending" : "active";
+        }
 
         const hashedPassword = await encryptPassword(password);
-        
+
         const user = await UserModal.create({
             username,
             email,
             password: hashedPassword,
-            role: finalRole, // Accepts student or staff, defaults to student
+            role: finalRole,
             avatar,
             rollNumber,
             universityName,
             departmentName,
             program,
             semester,
-            section
+            section,
+            organizationId: organizationId || undefined,
+            campusId: campusId || undefined,
+            status: userStatus,
         });
 
         if (user) {
-            const token = generateToken(user.id, user.role);
+            const token = generateToken(
+                user.id,
+                user.role,
+                organizationId || undefined,
+                campusId || undefined
+            );
             console.log("🔑 Registration JWT Token:", token);
 
             res.cookie("jwt", token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV !== "development", // Use secure cookies in production
-                sameSite: "strict", // Prevent CSRF attacks
-                maxAge:  30 * 24 * 60 * 60 * 1000,
+                secure: process.env.NODE_ENV !== "development",
+                sameSite: "strict",
+                maxAge: 30 * 24 * 60 * 60 * 1000,
             });
 
             // Send Welcome Email in background
@@ -88,6 +133,9 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
                 username: user.username,
                 email: user.email,
                 role: user.role,
+                status: user.status,
+                organizationId: user.organizationId,
+                campusId: user.campusId,
                 avatar: user.avatar,
                 personalEmergencyContacts: user.personalEmergencyContacts || [],
                 token: token,
@@ -107,7 +155,7 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
 // @desc    Auth user & get token
 // @route   POST /api/users/login
 // @access  Public
-export const loginUser = async (req: Request, res: Response): Promise<void> => {
+export const loginUser = async (req: Request, res: Response) => {
     console.log("Login route hit");
     console.log(req.body)
     try {
@@ -119,10 +167,39 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        console.log("ajfalkjlfjalfj")
         const user = await UserModal.findOne({ email });
+        if(!user){
+            return res.status(404).json({
+                success: false,
+                message: "User Doesn't exist"
+            })
+        }
 
+        console.log("aflakfjakfjaofjalkfjalfkj")
         if (user && (await bcrypt.compare(password, user.password))) {
-            const token = generateToken(user.id, user.role);
+console.log("entered")
+            // ==================================================
+            // STATUS CHECK — Block non-active accounts
+            // Exception: super_admin always allowed
+            // ==================================================
+            if (user.status !== "active" && user.role !== "super_admin") {
+                
+                res.status(403).json({
+                    success: false,
+                    message: "Your account is not active yet. Please contact your campus admin."
+                });
+                return;
+            }
+
+            console.log("hi mom")
+
+            const token = generateToken(
+                user.id,
+                user.role,
+                user.organizationId?.toString(),
+                user.campusId?.toString()
+            );
             console.log("🔑 Login JWT Token:", token);
 
             res.cookie("jwt", token, {
@@ -137,9 +214,12 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
+                status: user.status,
+                organizationId: user.organizationId,
+                campusId: user.campusId,
                 avatar: user.avatar,
                 personalEmergencyContacts: user.personalEmergencyContacts || [],
-                token: token,
+                // token: token,
             });
         } else {
             res.status(401).json({ message: "Invalid email or password" });
@@ -175,6 +255,9 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
                 id: user.id,
                 username: user.username,
                 role: user.role,
+                status: user.status,
+                organizationId: user.organizationId,
+                campusId: user.campusId,
                 avatar: user.avatar,
                 personalEmergencyContacts: user.personalEmergencyContacts || [],
             });
@@ -203,7 +286,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Save OTP and expiry (10 minutes)
         user.resetPasswordOTP = otp;
         user.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
@@ -240,7 +323,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 
         // Encrypt new password
         user.password = await encryptPassword(newPassword);
-        
+
         // Clear OTP fields
         user.resetPasswordOTP = null;
         user.resetPasswordOTPExpires = null;
@@ -252,4 +335,3 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
         res.status(500).json({ success: false, message: "Failed to reset password" });
     }
 };
-

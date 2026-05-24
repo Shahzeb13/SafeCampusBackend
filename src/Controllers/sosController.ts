@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import SOSModel from '../Models/sosModel.js';
 import UserModel from '../Models/userModel.js';
+import campusModel from '../Models/campusModel.js';
 import { isValidSOSRequest } from '../Types/TypePredicates/isValidSOSRequest.js';
 import { sendNotificationToUser } from '../Utils/notificationService.js';
 import { broadcastEmergencyAlert } from '../Utils/smsService.js';
 import { sendSOSAssignmentEmail, sendRejectionEmail } from '../Utils/emailService.js';
+import { isAdminLike, isSuperAdmin } from '../Types/TypePredicates/roleHelpers.js';
 
 export const createSOS = async (req: Request, res: Response) => {
   console.log("CreateSos controller hit")
@@ -28,6 +30,28 @@ export const createSOS = async (req: Request, res: Response) => {
       });
     }
 
+    // ==================================================
+    // TENANT SAFETY — Pull org/campus from the JWT (set during login)
+    // ==================================================
+    const organizationId = req.user?.organizationId;
+    const campusId = req.user?.campusId;
+
+    if (!organizationId || !campusId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is not linked to an organization or campus.',
+      });
+    }
+
+    // Verify the campus belongs to the user's organization
+    const campus = await campusModel.findOne({ _id: campusId, organizationId });
+    if (!campus) {
+      return res.status(403).json({
+        success: false,
+        message: 'Campus does not belong to your organization. SOS denied.',
+      });
+    }
+
     const newSOS = new SOSModel({
       userId,
       location: {
@@ -37,6 +61,8 @@ export const createSOS = async (req: Request, res: Response) => {
       note,
       status: 'active',
       triggerType: triggerType || 'button',
+      organizationId,
+      campusId,
     });
 
     await newSOS.save();
@@ -175,7 +201,7 @@ export const assignSOS = async (req: Request, res: Response) => {
     console.log("assignSOS route hit");
     try {
         const admin = req.user;
-        if (!admin || admin.role !== "admin") {
+        if (!admin || !isAdminLike(admin.role)) {
             return res.status(403).json({ success: false, message: "Admin access required" });
         }
 
@@ -310,8 +336,30 @@ export const getMySOSAssignments = async (req: Request, res: Response) => {
 export const getAllSOS = async (req: Request, res: Response) => {
   console.log("getAllSOS route hit");
   try {
-    // Populate user info so security knows WHO triggered it
-    const allSOS = await SOSModel.find()
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    // ==================================================
+    // TENANT-SAFE QUERY FILTER based on role
+    // ==================================================
+    let query: any = {};
+
+    if (isSuperAdmin(user.role)) {
+      // super_admin: can see all — optionally filter via query params
+      if (req.query.organizationId) query.organizationId = req.query.organizationId;
+      if (req.query.campusId) query.campusId = req.query.campusId;
+    } else if (user.role === 'organization_owner') {
+      // org_owner: sees all campuses under their org
+      query.organizationId = user.organizationId;
+    } else {
+      // campus_admin, security_incharge, security_guard, etc.
+      query.organizationId = user.organizationId;
+      query.campusId = user.campusId;
+    }
+
+    const allSOS = await SOSModel.find(query)
       .populate('userId', 'username email phoneNumber')
       .sort({ createdAt: -1 });
 

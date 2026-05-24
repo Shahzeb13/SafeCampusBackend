@@ -1,6 +1,6 @@
-import { IncidentModal } from "../../Modals/incidentModal.js";
+import { IIncident } from "../incidentTypes.js";
 
-export function isValidIncident(body: unknown): body is Incident {
+export function isValidIncident(body: unknown): body is IIncident {
     if (body === null || body === undefined || typeof body !== "object") {
         return false;
     }

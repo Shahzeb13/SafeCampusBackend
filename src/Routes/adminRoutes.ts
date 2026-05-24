@@ -1,5 +1,5 @@
 import express from "express";
-import { createUserByAdmin } from "../Controllers/adminController.js";
+import { createUserByAdmin, getAllUsers } from "../Controllers/adminController.js";
 import { getSecurityPersonnel } from "../Controllers/incidentController.js";
 import { verifyJwtToken, isAdmin } from "../Middlewares/authMiddleware.js";
 
@@ -11,6 +11,9 @@ router.use(isAdmin);
 
 // POST /api/admin/users
 router.post("/users", createUserByAdmin);
+
+// GET /api/admin/users
+router.get("/users", getAllUsers);
 
 // GET /api/admin/security-personnel
 router.get("/security-personnel", getSecurityPersonnel);

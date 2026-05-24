@@ -1,10 +1,21 @@
-
 import jwt from "jsonwebtoken";
+import { Role } from "../Types/userTypes.js";
 
-const generateToken = (id: string, role: string) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET || "fallbackSecretNoOneShouldKnow", {
-        expiresIn: "30d",
-    });
+/**
+ * Generates a JWT token embedding userId, role, organizationId, and campusId.
+ * organizationId and campusId are optional (undefined for super_admin).
+ */
+const generateToken = (
+  id: string,
+  role: Role,
+  organizationId?: string,
+  campusId?: string
+) => {
+  return jwt.sign(
+    { id, role, organizationId, campusId },
+    process.env.JWT_SECRET || "fallbackSecretNoOneShouldKnow",
+    { expiresIn: "30d" }
+  );
 };
 
 export default generateToken;

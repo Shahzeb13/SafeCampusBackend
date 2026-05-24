@@ -3,6 +3,7 @@ export interface SOSRequestBody {
     latitude: number;
     longitude: number;
   };
+  triggerType: "button" | "shake",
   note?: string;
 }
 

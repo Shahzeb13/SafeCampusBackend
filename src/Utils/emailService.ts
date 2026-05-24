@@ -366,22 +366,38 @@ export const sendRejectionEmail = async (
 };
 
 export const sendLeadEmail = async (leadData: { name: string; email: string; institution: string; message: string }) => {
+    const brandColor = "#0f172a"; // Slate 900
+    const accentColor = "#2563eb"; // Blue 600
+    
     // 1. Email to the User (Confirmation)
     const userMailOptions = {
         from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus Team'}" <${process.env.MAIL_FROM_ADDRESS}>`,
         to: leadData.email,
         subject: 'We received your SafeCampus request! 🛡️',
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #eee; border-radius: 20px; background-color: #fcfdfd;">
-                <h2 style="color: #00875A; text-align: center;">Hello ${leadData.name},</h2>
-                <p>Thank you for reaching out to SafeCampus! We have received your request for <strong>${leadData.institution}</strong>.</p>
-                <p>Our team is currently reviewing your details, and a representative will contact you shortly to discuss how we can help secure your campus.</p>
-                <div style="background-color: #e6f3ef; padding: 20px; border-radius: 12px; margin: 20px 0;">
-                    <p style="margin: 0; color: #006b44;"><strong>What's next?</strong></p>
-                    <p style="margin: 5px 0 0; font-size: 14px;">We'll reach out via this email address to schedule a personalized demo.</p>
+            <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 40px; border: 1px solid #f1f5f9; border-radius: 24px; background-color: #ffffff; color: #1e293b;">
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="display: inline-block; padding: 12px; background: ${brandColor}; border-radius: 12px; margin-bottom: 16px;">
+                        <img src="https://img.icons8.com/ios-filled/50/ffffff/shield.png" width="24" height="24" alt="Shield" />
+                    </div>
+                    <h1 style="color: ${brandColor}; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">SafeCampus</h1>
                 </div>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="font-size: 12px; color: #888; text-align: center;">SafeCampus - Empowering Institutions with Real-Time Safety</p>
+                
+                <h2 style="font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 16px;">Hello ${leadData.name},</h2>
+                <p style="font-size: 16px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
+                    Thank you for reaching out to SafeCampus! We've successfully received your inquiry for <strong>${leadData.institution}</strong>. 
+                </p>
+                
+                <div style="background-color: #f8fafc; padding: 24px; border-radius: 16px; margin-bottom: 32px; border: 1px solid #f1f5f9;">
+                    <p style="margin: 0; color: ${accentColor}; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Next Steps</p>
+                    <p style="margin: 0; font-size: 14px; color: #64748b; line-height: 1.5;">
+                        Our institutional security team is currently reviewing your message. A representative will contact you via this email address within 24 hours to schedule a personalized demo.
+                    </p>
+                </div>
+
+                <div style="text-align: center; font-size: 14px; color: #94a3b8; border-top: 1px solid #f1f5f9; pt: 32px; margin-top: 32px;">
+                    <p>© 2026 SafeCampus Inc. | Empowering Institutions with Real-Time Safety</p>
+                </div>
             </div>
         `,
     };
@@ -389,22 +405,30 @@ export const sendLeadEmail = async (leadData: { name: string; email: string; ins
     // 2. Email to the Super Admin (Notification)
     const adminMailOptions = {
         from: `"SafeCampus Lead Bot" <${process.env.MAIL_FROM_ADDRESS}>`,
-        to: process.env.SUPER_ADMIN_EMAIL || process.env.MAIL_FROM_ADDRESS, // Fallback to from address
+        to: "safecampus7@gmail.com",
         subject: `🚨 NEW LEAD: ${leadData.institution}`,
         html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 2px solid #00875A; border-radius: 20px;">
-                <h2 style="color: #00875A;">New Institutional Request</h2>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr><td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Name:</strong></td><td style="padding: 10px 0; border-bottom: 1px solid #eee;">${leadData.name}</td></tr>
-                    <tr><td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Institution:</strong></td><td style="padding: 10px 0; border-bottom: 1px solid #eee;">${leadData.institution}</td></tr>
-                    <tr><td style="padding: 10px 0; border-bottom: 1px solid #eee;"><strong>Email:</strong></td><td style="padding: 10px 0; border-bottom: 1px solid #eee;">${leadData.email}</td></tr>
-                </table>
-                <div style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px;">
-                    <strong>Message:</strong><br/>
-                    <p style="font-style: italic;">"${leadData.message}"</p>
+            <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: auto; padding: 40px; border: 2px solid ${brandColor}; border-radius: 24px; background-color: #ffffff;">
+                <div style="background: ${brandColor}; color: white; padding: 24px; border-radius: 16px; margin-bottom: 32px;">
+                    <p style="margin: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; opacity: 0.7;">System Notification</p>
+                    <h2 style="margin: 8px 0 0; font-size: 20px; font-weight: 800;">New Institutional Request</h2>
                 </div>
-                <div style="margin-top: 30px; text-align: center;">
-                    <a href="${process.env.ADMIN_DASHBOARD_URL || '#'}/leads" style="background: #00875A; color: #fff; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold;">View in Dashboard</a>
+
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 32px;">
+                    <tr><td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px; width: 140px;"><strong>Lead Name</strong></td><td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-weight: 600;">${leadData.name}</td></tr>
+                    <tr><td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;"><strong>Institution</strong></td><td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-weight: 600;">${leadData.institution}</td></tr>
+                    <tr><td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;"><strong>Email Address</strong></td><td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; color: ${accentColor}; font-weight: 600;">${leadData.email}</td></tr>
+                </table>
+
+                <div style="padding: 24px; background: #f8fafc; border-radius: 16px; border: 1px solid #f1f5f9; margin-bottom: 32px;">
+                    <p style="margin: 0 0 12px; font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Message Body</p>
+                    <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.6; font-style: italic;">"${leadData.message}"</p>
+                </div>
+
+                <div style="text-align: center;">
+                    <a href="https://safecampus.app/dashboard/superAdmin/leads" style="display: inline-block; background: ${brandColor}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                        Review Lead in Dashboard
+                    </a>
                 </div>
             </div>
         `,

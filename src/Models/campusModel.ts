@@ -11,15 +11,13 @@ const campusSchema = new mongoose.Schema<ICampusSchema>(
 
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Organization"
-
-    }
-    ,
+      ref: "Organization",
+      required: true,
+    },
 
     code: {
       type: String,
       required: true,
-      unique: true,
       uppercase: true,
       trim: true,
       // Example: ISB, ABT, CUI-ISB
@@ -123,6 +121,9 @@ const campusSchema = new mongoose.Schema<ICampusSchema>(
   },
   { timestamps: true }
 );
+
+// Compound unique index: organizationId + code
+campusSchema.index({ organizationId: 1, code: 1 }, { unique: true });
 
 
 const campusModel = mongoose.model<ICampusSchema>("campus", campusSchema);

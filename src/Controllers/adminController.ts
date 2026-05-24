@@ -65,3 +65,19 @@ export const createUserByAdmin = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: "Server Error during user creation" });
     }
 };
+
+/**
+ * Controller for Admin to get all users
+ */
+export const getAllUsers = async (req: Request, res: Response) => {
+    try {
+        const users = await UserModal.find().select("-password").sort({ createdAt: -1 });
+        res.status(200).json({
+            success: true,
+            data: users
+        });
+    } catch (error: any) {
+        console.error("Admin Get All Users Error:", error);
+        res.status(500).json({ success: false, message: "Server Error fetching users" });
+    }
+};

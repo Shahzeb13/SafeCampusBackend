@@ -1,10 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 import { IIncident } from "../Types/incidentTypes.js";
 
-// export interface IncidentDocument extends IIncident, Document {
-//   _id: any; // Explicitly override if needed or just use default
-// }
-
 const incidentSchema = new Schema<IIncident>(
   {
     reporter_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -49,7 +45,20 @@ const incidentSchema = new Schema<IIncident>(
       resourceType: { type: String },
     },
     voiceDuration: { type: String },
-    campusId: { type: Schema.Types.ObjectId, ref: "campus", required: true },
+    // SaaS multi-tenant
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+      // TODO: backfill old incidents without organizationId via scripts/backfillOrganizationId.ts
+    },
+    campusId: {
+      type: Schema.Types.ObjectId,
+      ref: "campus",
+      required: true,
+      index: true,
+    },
     status: {
       type: String,
       enum: ["pending", "under_review", "assigned", "resolved", "rejected"],
@@ -68,8 +77,11 @@ const incidentSchema = new Schema<IIncident>(
   }
 );
 
-// Index for better query performance on reporter_id
-incidentSchema.index({ reporter_id: 1, createdAt: -1 });
+// Composite tenant-safe indexes
+incidentSchema.index({ organizationId: 1, campusId: 1, status: 1 });
+incidentSchema.index({ organizationId: 1, campusId: 1, createdAt: -1 });
+incidentSchema.index({ reporter_id: 1 });
+incidentSchema.index({ assigned_to: 1 });
 
 const IncidentModel = mongoose.model<IIncident>("Incident", incidentSchema);
 export default IncidentModel;

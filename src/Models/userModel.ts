@@ -6,21 +6,38 @@ const userSchema = new mongoose.Schema<IUser>({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     role: {
-  enum: [
-    "super_admin",
-    "organization_owner",
-    "campus_admin",
-    "security_incharge",
-    "security_guard",
-    "student",
-    "staff"
-  ]
-},
+        type: String,
+        enum: [
+            "student",
+            "staff",
+            "super_admin",
+            "organization_owner",
+            "campus_admin",
+            "security_incharge",
+            "security_personnel",
+        ],
+        required: true,
+    },
     avatar: { type: String, default: "" },
-    // University specific fields
+    // SaaS multi-tenant
+    organizationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Organization",
+        required: function (this: IUser) {
+            return this.role !== "super_admin";
+        },
+        index: true,
+        // TODO: backfill old users without organizationId via scripts/backfillOrganizationId.ts
+    },
+    campusId: { type: mongoose.Schema.Types.ObjectId, ref: "campus", index: true },
+    status: {
+        type: String,
+        enum: ["pending", "active", "rejected", "suspended"],
+        default: "active",
+    },
+    // University-specific fields
     rollNumber: { type: String },
     universityName: { type: String },
-    campusId: { type: mongoose.Schema.Types.ObjectId, ref: "campus" },
     departmentName: { type: String },
     program: { type: String },
     semester: { type: String },
