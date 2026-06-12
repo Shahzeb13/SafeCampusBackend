@@ -6,7 +6,7 @@ import { CampusCreateRequest, CampusUpdateRequest } from "../campusTypes.js";
 export function isCampusCreateRequest(data: any): data is CampusCreateRequest {
   if (typeof data !== "object" || data === null) return false;
 
-  const requiredFields = ["name", "code", "city", "address", "organizationId", "location"];
+  const requiredFields = ["name", "code", "city",  "organizationId", "address", "location"];
   for (const field of requiredFields) {
     if (!(field in data)) return false;
   }

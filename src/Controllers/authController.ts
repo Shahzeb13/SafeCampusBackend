@@ -169,7 +169,7 @@ export const loginUser = async (req: Request, res: Response) => {
 
         console.log("ajfalkjlfjalfj")
         const user = await UserModal.findOne({ email });
-        if(!user){
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User Doesn't exist"
@@ -178,13 +178,13 @@ export const loginUser = async (req: Request, res: Response) => {
 
         console.log("aflakfjakfjaofjalkfjalfkj")
         if (user && (await bcrypt.compare(password, user.password))) {
-console.log("entered")
+            console.log("entered")
             // ==================================================
             // STATUS CHECK — Block non-active accounts
             // Exception: super_admin always allowed
             // ==================================================
             if (user.status !== "active" && user.role !== "super_admin") {
-                
+
                 res.status(403).json({
                     success: false,
                     message: "Your account is not active yet. Please contact your campus admin."
@@ -286,6 +286,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log('Generated OTP:', otp);
 
         // Save OTP and expiry (10 minutes)
         user.resetPasswordOTP = otp;
@@ -293,7 +294,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         await user.save();
 
         // Send Email
-        await sendOTPEmail(user.email, otp);
+        // await sendOTPEmail(user.email, otp);
 
         res.status(200).json({ success: true, message: "OTP sent to your email" });
     } catch (error) {

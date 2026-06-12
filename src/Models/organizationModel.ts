@@ -83,6 +83,12 @@ const organizationSchema = new Schema<IOrganization>(
       ref: "User",
       required: true,
     },
+    campuses : [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref : "campus"
+      }
+    ],
 
     settings: {
       allowSelfRegistration: {

@@ -3,6 +3,8 @@ import Organization from "../Models/organizationModel.js";
 import { isOrganization } from "../Types/TypePredicates/organizationPredicate.js";
 import { isSuperAdmin, isOrganizationOwner } from "../Types/TypePredicates/roleHelpers.js";
 import { validateEmail } from "../Utils/ValidateAuthData.js";
+import campusModel from "../Models/campusModel.js";
+import UserModel from "../Models/userModel.js";
 
 
 
@@ -213,8 +215,13 @@ export const deleteOrganization = async (req: Request, res: Response) => {
       });
     }
 
-    const deletedOrg = await Organization.findByIdAndDelete(id);
+    await campusModel.deleteMany({ organizationId: id });
+    
+    // await UserModel.findByIdAndDelete(user.id);
 
+    const deletedOrg = await Organization.findByIdAndDelete(id);
+    const ownerId = deletedOrg.ownerUserId;
+    await UserModel.findByIdAndDelete(ownerId);
     if (!deletedOrg) {
       return res.status(404).json({ success: false, message: "Organization not found." });
     }
@@ -228,3 +235,6 @@ export const deleteOrganization = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
+
+
+

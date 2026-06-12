@@ -10,10 +10,12 @@ import { isSuperAdmin, isOrganizationOwner, isAdminLike, isCampusAdmin } from ".
  * @access  Private (Super Admin or Organization Owner)
  */
 export const createCampus = async (req: Request, res: Response) => {
+  console.log("Create campus Controller hit");
   try {
     const data = req.body;
     const user = req.user;
 
+    console.log("data", data);
     if (!user) {
       return res.status(401).json({ success: false, message: "Unauthorized." });
     }
@@ -62,7 +64,15 @@ export const createCampus = async (req: Request, res: Response) => {
       createdBy: user.id
     });
 
+    await Organization.findByIdAndUpdate(
+      data.organizationId,
+      {
+        $push: {campuses: newCampus._id}
+      }
+    )
+
     await newCampus.save();
+    
 
     return res.status(201).json({
       success: true,

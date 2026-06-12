@@ -73,6 +73,8 @@ const campusSchema = new mongoose.Schema<ICampusSchema>(
       },
     ],
 
+
+    
     contactEmail: {
       type: String,
       trim: true,

@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
-import UserModal from "../Models/userModel.js";
-import { encryptPassword } from "../Utils/hashPassword.js";
-import { validateUsername, validateEmail } from "../Utils/ValidateAuthData.js";
-import { sendWelcomeEmail } from "../Utils/emailService.js";
+import UserModal from "../../Models/userModel.js";
+import { encryptPassword } from "../../Utils/hashPassword.js";
+import { validateUsername, validateEmail } from "../../Utils/ValidateAuthData.js";
+import { sendWelcomeEmail } from "../../Utils/emailService.js";
+import { isSuperAdmin, isOrganizationOwner } from "../../Types/TypePredicates/roleHelpers.js";
 
 /**
  * Controller for Admin to create users (Students or Staff)
@@ -79,5 +80,56 @@ export const getAllUsers = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error("Admin Get All Users Error:", error);
         res.status(500).json({ success: false, message: "Server Error fetching users" });
+    }
+};
+
+/**
+ * @desc    Allow SuperAdmin and OrgOwner to create users with roles smaller than OrgOwner
+ * @route   POST /api/admin/org/users
+ */
+export const createOrgUser = async (req: Request, res: Response) => {
+    try {
+        const loggedInRole = req.user?.role!;
+        if (!isSuperAdmin(loggedInRole) && !isOrganizationOwner(loggedInRole)) {
+            return res.status(403).json({ success: false, message: "Not authorized. Only SuperAdmin or OrgOwner can create these users." });
+        }
+
+        const { username, email, password, role, campusId } = req.body;
+        let { organizationId } = req.body;
+        
+        // Restrict allowed roles below OrgOwner
+        const allowedRoles = ["campus_admin", "security_incharge", "security_personnel", "student", "staff"];
+        if (!allowedRoles.includes(role)) {
+            return res.status(400).json({ success: false, message: `Cannot create user with role '${role}'. Allowed roles: ${allowedRoles.join(', ')}` });
+        }
+
+        // If OrgOwner, force organizationId to be their own organization
+        if (isOrganizationOwner(loggedInRole)) {
+            organizationId = req.user?.organizationId;
+        }
+
+        if (!username || !email || !password || !role || !organizationId) {
+            return res.status(400).json({ success: false, message: "Missing required fields, or Organization ID is missing." });
+        }
+
+        const emailCheck = validateEmail(email);
+        if (!emailCheck.ok) return res.status(400).json({ success: false, message: emailCheck.reason });
+
+        const existingUser = await UserModal.findOne({ email });
+        if (existingUser) return res.status(400).json({ success: false, message: "Email already exists." });
+
+        const hashedPassword = await encryptPassword(password);
+        const user = await UserModal.create({
+            username, email, password: hashedPassword, role, organizationId, campusId
+        });
+
+        res.status(201).json({ 
+            success: true, 
+            message: "Organization user created successfully",
+            user: { id: user._id, username, email, role, organizationId }
+        });
+    } catch (error: any) {
+        console.error("Error in createOrgUser:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };

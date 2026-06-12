@@ -9,7 +9,7 @@ import incidentRoutes from "./Routes/incidentRoutes.js";
 import notificationRoutes from "./Routes/notificationRoutes.js";
 import emergencyContactRoutes from "./Routes/emergencyContactRoutes.js";
 import sosRoutes from "./Routes/sosRoutes.js";
-import adminRoutes from "./Routes/adminRoutes.js";
+import adminRoutes from "./Routes/AdministrationRoutes/index.js";
 import userRoutes from "./Routes/userRoutes.js";
 import chatRoutes from "./Routes/chatRoutes.js";
 import landingRoutes from "./Routes/landingRoutes.js";
@@ -31,6 +31,7 @@ import { connectToMongoDB } from './Database/connectToDatabase.js';
 import "./Database/firebaseAdmin.js";
 app.use(cookieParser());
 await connectToMongoDB();
+
 /* ---------- ROUTES ---------- */
 
 import organizationRoutes from "./Routes/organizationRoutes.js";
