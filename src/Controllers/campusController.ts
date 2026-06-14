@@ -336,6 +336,14 @@ export const deleteCampus = async (req: Request, res: Response) => {
       });
     }
 
+    // Remove campus reference from Organization
+    await Organization.findByIdAndUpdate(
+      campus.organizationId,
+      {
+        $pull: { campuses: campus._id }
+      }
+    );
+
     await campusModel.findByIdAndDelete(id);
 
     return res.status(200).json({
