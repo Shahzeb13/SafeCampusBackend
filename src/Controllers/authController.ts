@@ -160,7 +160,8 @@ export const loginUser = async (req: Request, res: Response) => {
     console.log(req.body)
     try {
         const { email, password } = req.body;
-
+        console.log(email);
+        console.log(password);
         const isEmailValid = validateEmail(email);
         if (!isEmailValid.ok) {
             res.status(400).json({ success: false, message: isEmailValid.reason })
