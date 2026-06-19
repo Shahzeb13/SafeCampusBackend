@@ -105,6 +105,7 @@ export async function createCampusAdmin(req: Request, res: Response) {
       email,
       password: hashedPassword,
       role: "campus_admin",
+      allowed_client: "web",
       organizationId: loggedInUserOrgId,
       status: "active"
     });

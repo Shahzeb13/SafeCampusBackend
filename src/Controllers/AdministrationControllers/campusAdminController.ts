@@ -101,6 +101,7 @@ export async function createStudentStaff(req: Request, res: Response) {
       email,
       password: hashedPassword,
       role: creationRole,
+      allowed_client: "mobile",
       campusId: loggedInUserCampusId,
       organizationId: loggedInUserOrgId,
       status: "active"
@@ -175,17 +176,20 @@ export async function createSecurityPersonel(req: Request, res: Response) {
     }
 
     const hashedPassword = await encryptPassword(password);
-
+  
 
     const creationRole = role === "security_incharge" ? "security_incharge" : "security_personnel"
+    const allowedClient = creationRole === 'security_incharge'? "web": "mobile";
     const user = await UserModel.create({
       username,
       email,
       password: hashedPassword,
       role: creationRole,
+      allowed_client: allowedClient,
       campusId: loggedInUserCampusId,
       organizationId: loggedInUserOrgId,
       status: "active"
+      
     });
 
     return res.status(201).json({

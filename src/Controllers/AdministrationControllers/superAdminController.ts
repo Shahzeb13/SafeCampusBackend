@@ -32,6 +32,7 @@ export const createAndAssignOrgOwner = async (req: Request, res: Response) => {
             email,
             password: hashedPassword,
             role: "organization_owner",
+            allowed_client: "web",
             organizationId,
         });
 

@@ -3,14 +3,129 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// ─────────────────────────────────────────────
+// Custom Error Class
+// ─────────────────────────────────────────────
+export class EmailError extends Error {
+    public readonly code: string;
+    public readonly recipient?: string;
+    public readonly emailType?: string;
+
+    constructor(message: string, code: string, recipient?: string, emailType?: string) {
+        super(message);
+        this.name = 'EmailError';
+        this.code = code;
+        this.recipient = recipient;
+        this.emailType = emailType;
+    }
+}
+
+// ─────────────────────────────────────────────
+// Env-var Validation
+// ─────────────────────────────────────────────
+const REQUIRED_MAIL_VARS = [
+    'MAIL_HOST',
+    'MAIL_USERNAME',
+    'MAIL_PASSWORD',
+    'MAIL_FROM_ADDRESS',
+] as const;
+
+function validateMailConfig(): void {
+    const missing = REQUIRED_MAIL_VARS.filter((key) => !process.env[key]);
+    if (missing.length > 0) {
+        console.error(
+            `❌ [EmailService] Missing required environment variables: ${missing.join(', ')}. Emails will NOT be sent.`
+        );
+    }
+}
+
+validateMailConfig();
+
+// ─────────────────────────────────────────────
+// SMTP Error Classifier
+// ─────────────────────────────────────────────
+function classifyMailError(error: unknown, recipient?: string, emailType?: string): EmailError {
+    const err = error as Record<string, unknown>;
+    const code = (err?.code as string) ?? 'UNKNOWN';
+    const responseCode = (err?.responseCode as number) ?? 0;
+    const command = (err?.command as string) ?? '';
+
+    let message: string;
+
+    // Auth failures
+    if (code === 'EAUTH' || responseCode === 535 || responseCode === 534 || responseCode === 530) {
+        message = `SMTP authentication failed for user "${process.env.MAIL_USERNAME}". Check MAIL_USERNAME and MAIL_PASSWORD in your .env file.`;
+    }
+    // DNS / hostname resolution
+    else if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+        message = `Cannot resolve SMTP host "${process.env.MAIL_HOST}". Check MAIL_HOST in your .env file.`;
+    }
+    // Connection refused / port issue
+    else if (code === 'ECONNREFUSED') {
+        message = `Connection refused by SMTP server at ${process.env.MAIL_HOST}:${process.env.MAIL_PORT}. Check MAIL_PORT and MAIL_ENCRYPTION.`;
+    }
+    // Connection reset
+    else if (code === 'ECONNRESET') {
+        message = `SMTP connection was reset by the server. This may be a TLS/SSL mismatch. Check MAIL_ENCRYPTION setting.`;
+    }
+    // Timeout
+    else if (code === 'ETIMEDOUT' || code === 'ESOCKET') {
+        message = `SMTP connection timed out while connecting to ${process.env.MAIL_HOST}. Server may be unreachable.`;
+    }
+    // Sender rejected (554, 553)
+    else if (responseCode === 554 || responseCode === 553) {
+        message = `Sender address "${process.env.MAIL_FROM_ADDRESS}" was rejected by the SMTP server. Ensure it matches MAIL_USERNAME.`;
+    }
+    // Recipient rejected (550, 551, 552)
+    else if (responseCode >= 550 && responseCode <= 552) {
+        message = `Recipient address "${recipient}" was rejected by the SMTP server. The address may not exist.`;
+    }
+    // Rate limiting (421, 450)
+    else if (responseCode === 421 || responseCode === 450) {
+        message = `SMTP server is temporarily unavailable or rate-limiting requests. Try again later.`;
+    }
+    // TLS required
+    else if (command === 'STARTTLS' || responseCode === 538) {
+        message = `SMTP server requires TLS encryption. Set MAIL_ENCRYPTION=tls and MAIL_PORT=587 in your .env file.`;
+    }
+    // Generic SMTP error with response code
+    else if (responseCode > 0) {
+        message = `SMTP error ${responseCode}: ${(err?.response as string) ?? 'No additional details provided.'}`.trim();
+    }
+    // Fallback
+    else {
+        message = (err?.message as string) ?? 'An unknown email error occurred.';
+    }
+
+    return new EmailError(message, code, recipient, emailType);
+}
+
+// ─────────────────────────────────────────────
+// Transporter
+// ─────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
     host: process.env.MAIL_HOST,
     port: Number(process.env.MAIL_PORT) || 465,
-    secure: process.env.MAIL_ENCRYPTION === 'ssl', // true for 465, false for other ports
+    secure: process.env.MAIL_ENCRYPTION === 'ssl', // true for port 465, false for 587 (STARTTLS)
     auth: {
         user: process.env.MAIL_USERNAME,
         pass: process.env.MAIL_PASSWORD,
     },
+    // Retry on transient failures
+    pool: true,
+    maxConnections: 3,
+    socketTimeout: 15000, // 15 seconds
+    connectionTimeout: 10000, // 10 seconds
+});
+
+// Verify SMTP connection on startup (non-blocking)
+transporter.verify((error) => {
+    if (error) {
+        const classified = classifyMailError(error);
+        console.error(`❌ [EmailService] SMTP connection verification failed — ${classified.message}`);
+    } else {
+        console.log(`✅ [EmailService] SMTP connection verified. Ready to send emails via ${process.env.MAIL_HOST}.`);
+    }
 });
 
 export const sendOTPEmail = async (email: string, otp: string) => {
@@ -34,11 +149,13 @@ export const sendOTPEmail = async (email: string, otp: string) => {
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`OTP email sent to ${email}`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`✅ [EmailService] OTP email sent to ${email} (messageId: ${info.messageId})`);
     } catch (error) {
-        console.error('Error sending email:', error);
-        throw new Error('Failed to send OTP email');
+        const classified = classifyMailError(error, email, 'OTP');
+        console.error(`❌ [EmailService] Failed to send OTP email to ${email} — [${classified.code}] ${classified.message}`);
+        // Re-throw for OTP since the caller (forgotPassword) depends on delivery
+        throw classified;
     }
 };
 export const sendWelcomeEmail = async (email: string, username: string, role: string = 'student') => {
@@ -102,10 +219,12 @@ export const sendWelcomeEmail = async (email: string, username: string, role: st
     };
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log(`Welcome email (${role}) sent to ${email}`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`✅ [EmailService] Welcome email (${role}) sent to ${email} (messageId: ${info.messageId})`);
     } catch (error) {
-        console.error('Error sending welcome email:', error);
+        const classified = classifyMailError(error, email, 'Welcome');
+        // Non-critical — log but do not throw (registration already succeeded)
+        console.error(`❌ [EmailService] Failed to send welcome email to ${email} — [${classified.code}] ${classified.message}`);
     }
 };
 export const sendAssignmentEmail = async (
@@ -191,15 +310,17 @@ export const sendAssignmentEmail = async (
     `;
 
     try {
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
             from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus Security'}" <${process.env.MAIL_FROM_ADDRESS}>`,
             to: recipientEmail,
             subject: subject,
             html: htmlContent,
         });
-        console.log(`📧 Assignment email sent to ${recipientEmail}`);
+        console.log(`✅ [EmailService] Assignment email sent to ${recipientEmail} (messageId: ${info.messageId})`);
     } catch (error) {
-        console.error('❌ Error sending assignment email:', error);
+        const classified = classifyMailError(error, recipientEmail, 'Assignment');
+        // Non-critical — assignment is still saved in DB even if email fails
+        console.error(`❌ [EmailService] Failed to send assignment email to ${recipientEmail} — [${classified.code}] ${classified.message}`);
     }
 };
 
@@ -278,15 +399,17 @@ export const sendSOSAssignmentEmail = async (
     `;
 
     try {
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
             from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus Emergency'}" <${process.env.MAIL_FROM_ADDRESS}>`,
             to: recipientEmail,
             subject: subject,
             html: htmlContent,
         });
-        console.log(`📧 SOS Assignment email sent to ${recipientEmail}`);
+        console.log(`✅ [EmailService] SOS assignment email sent to ${recipientEmail} (messageId: ${info.messageId})`);
     } catch (error) {
-        console.error('❌ Error sending SOS assignment email:', error);
+        const classified = classifyMailError(error, recipientEmail, 'SOS Assignment');
+        // Non-critical — SOS is still active in DB even if notification email fails
+        console.error(`❌ [EmailService] Failed to send SOS assignment email to ${recipientEmail} — [${classified.code}] ${classified.message}`);
     }
 };
 
@@ -353,15 +476,17 @@ export const sendRejectionEmail = async (
     `;
 
     try {
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
             from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus Admin'}" <${process.env.MAIL_FROM_ADDRESS}>`,
             to: recipientEmail,
             subject: subject,
             html: htmlContent,
         });
-        console.log(`📧 Rejection email sent to ${recipientEmail}`);
+        console.log(`✅ [EmailService] Rejection email sent to ${recipientEmail} (messageId: ${info.messageId})`);
     } catch (error) {
-        console.error('❌ Error sending rejection email:', error);
+        const classified = classifyMailError(error, recipientEmail, 'Rejection');
+        // Non-critical — rejection is still recorded in DB even if email fails
+        console.error(`❌ [EmailService] Failed to send rejection email to ${recipientEmail} — [${classified.code}] ${classified.message}`);
     }
 };
 
@@ -387,6 +512,19 @@ export const sendLeadEmail = async (leadData: { name: string; email: string; ins
                 <p style="font-size: 16px; line-height: 1.6; color: #475569; margin-bottom: 24px;">
                     Thank you for reaching out to SafeCampus! We've successfully received your inquiry for <strong>${leadData.institution}</strong>. 
                 </p>
+
+                <div style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                    <div style="background-color: #f8fafc; padding: 12px 20px; border-bottom: 1px solid #e2e8f0;">
+                        <h3 style="margin: 0; font-size: 14px; color: #0f172a; font-weight: 700;">Your Inquiry Details</h3>
+                    </div>
+                    <div style="padding: 16px 20px; font-size: 14px; color: #334155; line-height: 1.5;">
+                        <p style="margin: 0 0 8px 0;"><strong>Name:</strong> ${leadData.name}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Institution:</strong> ${leadData.institution}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${leadData.email}</p>
+                        <p style="margin: 0 0 8px 0;"><strong>Message:</strong></p>
+                        <p style="margin: 4px 0 0 0; padding: 12px; background-color: #f1f5f9; border-radius: 8px; font-style: italic; color: #475569;">"${leadData.message}"</p>
+                    </div>
+                </div>
                 
                 <div style="background-color: #f8fafc; padding: 24px; border-radius: 16px; margin-bottom: 32px; border: 1px solid #f1f5f9;">
                     <p style="margin: 0; color: ${accentColor}; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Next Steps</p>
@@ -435,12 +573,27 @@ export const sendLeadEmail = async (leadData: { name: string; email: string; ins
     };
 
     try {
-        await Promise.all([
+        const [userInfo, adminInfo] = await Promise.allSettled([
             transporter.sendMail(userMailOptions),
-            transporter.sendMail(adminMailOptions)
+            transporter.sendMail(adminMailOptions),
         ]);
-        console.log(`Lead emails sent for ${leadData.email}`);
+
+        if (userInfo.status === 'fulfilled') {
+            console.log(`✅ [EmailService] Lead confirmation email sent to ${leadData.email} (messageId: ${userInfo.value.messageId})`);
+        } else {
+            const classified = classifyMailError(userInfo.reason, leadData.email, 'Lead Confirmation');
+            console.error(`❌ [EmailService] Failed to send lead confirmation to ${leadData.email} — [${classified.code}] ${classified.message}`);
+        }
+
+        if (adminInfo.status === 'fulfilled') {
+            console.log(`✅ [EmailService] Lead notification sent to admin (messageId: ${adminInfo.value.messageId})`);
+        } else {
+            const classified = classifyMailError(adminInfo.reason, 'safecampus7@gmail.com', 'Lead Admin Notification');
+            console.error(`❌ [EmailService] Failed to send lead notification to admin — [${classified.code}] ${classified.message}`);
+        }
     } catch (error) {
-        console.error('Error sending lead emails:', error);
+        // Catches any unexpected synchronous errors in mail option construction
+        const classified = classifyMailError(error, leadData.email, 'Lead');
+        console.error(`❌ [EmailService] Unexpected error in sendLeadEmail — [${classified.code}] ${classified.message}`);
     }
 };

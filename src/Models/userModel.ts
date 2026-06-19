@@ -35,6 +35,12 @@ const userSchema = new mongoose.Schema<IUser>({
         enum: ["pending", "active", "rejected", "suspended"],
         default: "active",
     },
+
+    allowed_client :{
+        type: String, 
+        enum: ["web" , "mobile"],
+        
+    },
     // University-specific fields
     rollNumber: { type: String },
     universityName: { type: String },

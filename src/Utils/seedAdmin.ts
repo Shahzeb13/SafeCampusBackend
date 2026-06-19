@@ -34,6 +34,7 @@ const seedSuperAdmin = async () => {
       email: adminEmail,
       password: hashedPassword,
       role: "super_admin",
+      allowed_client: "web",
       status: "active",
     });
 

@@ -12,6 +12,7 @@ export type Role =
 
 export type UserStatus = "pending" | "active" | "rejected" | "suspended";
 
+type allowedClient = "web" | "mobile"
 export interface IUser {
   username: string;
   email: string;
@@ -22,6 +23,7 @@ export interface IUser {
   organizationId?: Types.ObjectId;  // TODO: backfill for old users via backfillOrganizationId.ts
   campusId?: Types.ObjectId;
   status: UserStatus;
+  allowed_client: allowedClient,
   // University-specific fields
   rollNumber?: string;
   universityName?: string;

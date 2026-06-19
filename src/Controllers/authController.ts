@@ -162,6 +162,13 @@ export const loginUser = async (req: Request, res: Response) => {
         const { email, password } = req.body;
         console.log(email);
         console.log(password);
+        const xClient = req.headers['x-client'];
+
+         if (!xClient || (xClient !== 'web' && xClient !== 'mobile')) {
+      return res.status(400).json({ 
+        message: 'Bad Request: Missing or invalid x-client header.' 
+      });
+    }
         const isEmailValid = validateEmail(email);
         if (!isEmailValid.ok) {
             res.status(400).json({ success: false, message: isEmailValid.reason })
@@ -193,7 +200,12 @@ export const loginUser = async (req: Request, res: Response) => {
                 return;
             }
 
-            console.log("hi mom")
+            // console.log("hi mom")
+            if (user.allowed_client && user.allowed_client !== xClient) {
+      return res.status(403).json({ 
+        message: 'Access Denied: Your account is not authorized to log in from this platform.' 
+      });
+    }
 
             const token = generateToken(
                 user.id,
@@ -295,7 +307,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         await user.save();
 
         // Send Email
-        // await sendOTPEmail(user.email, otp);
+        await sendOTPEmail(user.email, otp);
 
         res.status(200).json({ success: true, message: "OTP sent to your email" });
     } catch (error) {
