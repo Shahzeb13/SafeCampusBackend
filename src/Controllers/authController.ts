@@ -261,7 +261,9 @@ export const logoutUser = (req: Request, res: Response): void => {
 export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
     console.log("getUserProfile route hit");
     try {
-        const user = await UserModal.findById(req.user?.id);
+        const user = await UserModal.findById(req.user?.id)
+            .populate("organizationId", "name")
+            .populate("campusId", "name");
 
         if (user) {
             res.json({
@@ -282,6 +284,7 @@ export const getUserProfile = async (req: Request, res: Response): Promise<void>
         res.status(500).json({ message: "Server Error" });
     }
 };
+
 
 // @desc    Request password reset OTP
 // @route   POST /api/auth/forgot-password

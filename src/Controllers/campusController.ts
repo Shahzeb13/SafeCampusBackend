@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import campusModel from "../Models/campusModel.js";
 import Organization from "../Models/organizationModel.js";
 import { isCampusCreateRequest, isCampusUpdateRequest } from "../Types/TypePredicates/campusPredicate.js";
-import { isSuperAdmin, isOrganizationOwner, isAdminLike, isCampusAdmin } from "../Types/TypePredicates/roleHelpers.js";
+import { isSuperAdmin, isOrganizationOwner, isAdminLike, isCampusAdmin, isSecurityIncharge } from "../Types/TypePredicates/roleHelpers.js";
 
 /**
  * @desc    Create a new campus
@@ -189,7 +189,7 @@ export const getCampusById = async (req: Request, res: Response) => {
 
 
     
-    if(isCampusAdmin(user.role)){
+    if(isCampusAdmin(user.role) || isSecurityIncharge(user.role)){
 
       if (!user.campusId) {
         return res.status(403).json({
@@ -214,11 +214,7 @@ export const getCampusById = async (req: Request, res: Response) => {
     )
     }
     
-
-    
- 
-
-      return res.status(403).json({
+    return res.status(403).json({
       success: false,
       message: "Access denied."
     });

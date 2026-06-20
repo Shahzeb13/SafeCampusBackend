@@ -118,15 +118,31 @@ const transporter = nodemailer.createTransport({
     connectionTimeout: 10000, // 10 seconds
 });
 
-// Verify SMTP connection on startup (non-blocking)
-transporter.verify((error) => {
-    if (error) {
-        const classified = classifyMailError(error);
-        console.error(`❌ [EmailService] SMTP connection verification failed — ${classified.message}`);
-    } else {
-        console.log(`✅ [EmailService] SMTP connection verified. Ready to send emails via ${process.env.MAIL_HOST}.`);
-    }
-});
+// Verify SMTP connection on startup (non-blocking, with retries)
+const MAX_SMTP_ATTEMPTS = 4;
+const SMTP_RETRY_DELAY_MS = 5000;
+
+function verifySMTPConnection(attemptsLeft: number = MAX_SMTP_ATTEMPTS): void {
+    transporter.verify((error) => {
+        if (error) {
+            const classified = classifyMailError(error);
+            const currentAttempt = MAX_SMTP_ATTEMPTS - attemptsLeft + 1;
+            console.error(`❌ [EmailService] SMTP connection verification attempt ${currentAttempt}/${MAX_SMTP_ATTEMPTS} failed — ${classified.message}`);
+            
+            if (attemptsLeft > 1) {
+                console.log(`⏳ [EmailService] Retrying SMTP connection in ${SMTP_RETRY_DELAY_MS / 1000}s...`);
+                setTimeout(() => verifySMTPConnection(attemptsLeft - 1), SMTP_RETRY_DELAY_MS);
+            } else {
+                console.error(`❌ [EmailService] SMTP connection verification failed after ${MAX_SMTP_ATTEMPTS} attempts.`);
+            }
+        } else {
+            console.log(`✅ [EmailService] SMTP connection verified. Ready to send emails via ${process.env.MAIL_HOST}.`);
+        }
+    });
+}
+
+verifySMTPConnection();
+
 
 export const sendOTPEmail = async (email: string, otp: string) => {
     const mailOptions = {

@@ -9,6 +9,8 @@ import fs from "fs";
 import { sendNotificationToUser } from "../Utils/notificationService.js";
 import { sendOTPEmail, sendWelcomeEmail, sendAssignmentEmail, sendRejectionEmail } from "../Utils/emailService.js";
 import { isAdminLike, isSuperAdmin } from "../Types/TypePredicates/roleHelpers.js";
+import { getDistanceMeters } from "../Utils/geofence.js";
+
 
 // @desc    Submit a new incident
 // @route   POST /api/incidents/uploadIncident
@@ -134,6 +136,30 @@ export const createIncident = async (req: Request, res: Response) => {
     if (!campus) {
       return res.status(403).json({ message: "Campus does not belong to your organization. Incident submission denied." });
     }
+
+    // Geofence check
+    if (latitude && longitude) {
+      const distance = getDistanceMeters(
+        Number(latitude),
+        Number(longitude),
+        campus.location.latitude,
+        campus.location.longitude
+      );
+
+      if (distance > campus.allowedRadiusMeters) {
+        // Delete any uploaded temp files on failure
+        const files = (req as any).files as IncidentMulterFiles;
+        if (files) {
+          Object.values(files).flat().forEach((file) => {
+             if (fs.existsSync(file.path)) fs.unlinkSync(file.path)
+          });
+        }
+        return res.status(400).json({
+          message: `Incident submission denied: You are outside the allowed campus boundary (${Math.round(distance)}m from campus center).`,
+        });
+      }
+    }
+
 
     const newIncident = new IncidentModel({
       reporter_id: user.id,

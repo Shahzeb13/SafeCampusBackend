@@ -57,7 +57,8 @@ export function isAdminLike(role: Role): boolean {
   return (
     role === "super_admin" ||
     role === "organization_owner" ||
-    role === "campus_admin"
+    role === "campus_admin" ||
+    role === "security_incharge"
   );
 }
 

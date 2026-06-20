@@ -4,6 +4,9 @@ import { encryptPassword } from "../../Utils/hashPassword.js";
 import { validateUsername, validateEmail } from "../../Utils/ValidateAuthData.js";
 import { sendWelcomeEmail } from "../../Utils/emailService.js";
 import { isSuperAdmin, isOrganizationOwner } from "../../Types/TypePredicates/roleHelpers.js";
+import IncidentModel from "../../Models/incidentModel.js";
+import SOSModel from "../../Models/sosModel.js";
+
 
 /**
  * Controller for Admin to create users (Students or Staff)
@@ -133,3 +136,79 @@ export const createOrgUser = async (req: Request, res: Response) => {
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };
+
+/**
+ * Controller for Security Incharge Dashboard Data
+ */
+export const getSecurityInchargeDashboard = async (req: Request, res: Response) => {
+    try {
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ success: false, message: "Not authorized" });
+        }
+
+        let query: any = {};
+        let guardQuery: any = { role: "security_personnel" };
+
+        if (!isSuperAdmin(user.role)) {
+            query.organizationId = user.organizationId;
+            query.campusId = user.campusId;
+
+            guardQuery.organizationId = user.organizationId;
+            guardQuery.campusId = user.campusId;
+        }
+
+        // Fetch counts
+        const [
+            totalIncidents,
+            pendingIncidents,
+            resolvedIncidents,
+            activeSOS,
+            totalGuards
+        ] = await Promise.all([
+            IncidentModel.countDocuments(query),
+            IncidentModel.countDocuments({ ...query, status: "pending" }),
+            IncidentModel.countDocuments({ ...query, status: "resolved" }),
+            SOSModel.countDocuments({ ...query, status: { $in: ["active", "acknowledged", "responding"] } }),
+            UserModal.countDocuments(guardQuery)
+        ]);
+
+        // Fetch recent items
+        const [recentIncidents, recentSOS, recentGuards] = await Promise.all([
+            IncidentModel.find(query)
+                .populate("reporter_id", "username email")
+                .populate("assigned_to", "username email")
+                .sort({ createdAt: -1 })
+                .limit(5),
+            SOSModel.find(query)
+                .populate("userId", "username email phoneNumber")
+                .populate("assigned_to", "username email")
+                .sort({ createdAt: -1 })
+                .limit(5),
+            UserModal.find(guardQuery)
+                .select("-password")
+                .sort({ createdAt: -1 })
+                .limit(5)
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                stats: {
+                    totalIncidents,
+                    pendingIncidents,
+                    resolvedIncidents,
+                    activeSOS,
+                    totalGuards
+                },
+                recentIncidents,
+                recentSOS,
+                recentGuards
+            }
+        });
+    } catch (error: any) {
+        console.error("Error fetching security incharge dashboard data:", error);
+        res.status(500).json({ success: false, message: "Server Error fetching dashboard data" });
+    }
+};
+
