@@ -5,6 +5,7 @@ import {
   getIncidentById,
   getAllIncidents,
   getIncidentsForRadar,
+  getAssignmentResponses,
   updateIncidentStatus,
   assignIncident,
   respondToAssignment,
@@ -56,6 +57,9 @@ router.post("/update-status", updateIncidentStatus);
 
 // Admin can assign an incident to security personnel
 router.post("/assign", assignIncident);
+
+// Admin / Security Incharge can fetch guard assignment responses scoped to their campus/org
+router.get("/assignment-responses", getAssignmentResponses);
 
 // Security guard responds to an assignment
 router.post("/respond-assignment", respondToAssignment);

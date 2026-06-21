@@ -8,7 +8,8 @@ import { uploadOnCloudinary } from "../Utils/cloudinary.js";
 import fs from "fs";
 import { sendNotificationToUser } from "../Utils/notificationService.js";
 import { sendOTPEmail, sendWelcomeEmail, sendAssignmentEmail, sendRejectionEmail } from "../Utils/emailService.js";
-import { isAdminLike, isSuperAdmin } from "../Types/TypePredicates/roleHelpers.js";
+import { sendStatusUpdateEmail } from "../Utils/emailService.js";
+import { isAdminLike, isSuperAdmin, isOrganizationOwner } from "../Types/TypePredicates/roleHelpers.js";
 import { getDistanceMeters } from "../Utils/geofence.js";
 
 
@@ -374,6 +375,21 @@ export const updateIncidentStatus = async (req: Request, res: Response) => {
       );
     }
 
+    // Send status update email for other statuses (acknowledged/responding/resolved)
+    if (reporter && reporter.email && status !== 'rejected') {
+      try {
+        await sendStatusUpdateEmail(reporter.email, reporter.username, {
+          id: updatedIncident._id.toString(),
+          title: updatedIncident.title,
+          type: updatedIncident.incidentType,
+          status,
+          reason: rejectionReason
+        }, false);
+      } catch (err) {
+        console.error('Failed to send incident status email:', err);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: `Incident status updated to ${status}`,
@@ -449,17 +465,17 @@ export const assignIncident = async (req: Request, res: Response) => {
       type: updatedIncident.incidentType,
       location: updatedIncident.locationText || "Unspecified Campus Location",
       description: updatedIncident.description,
-      reporterName: updatedIncident.reporter_id?.username
+      reporterName: (updatedIncident.reporter_id as any)?.username
     };
 
     await sendAssignmentEmail(guard.email, guard.username, incidentInfo, true);
 
     // 3. Fallback Email Notification (Student/Reporter)
-    if (updatedIncident.reporter_id?.email) {
+    if ((updatedIncident.reporter_id as any)?.email) {
       await sendAssignmentEmail(
-        updatedIncident.reporter_id.email, 
-        updatedIncident.reporter_id.username, 
-        incidentInfo, 
+        (updatedIncident.reporter_id as any).email,
+        (updatedIncident.reporter_id as any).username,
+        incidentInfo,
         false
       );
     }
@@ -524,8 +540,8 @@ export const respondToAssignment = async (req: Request, res: Response) => {
     // Notify admin about the guard's response via broadcast to all admins
     const admins = await UserModel.find({ 
       role: "campus_admin", 
-      organizationId: updatedIncident.organizationId,
-      campusId: updatedIncident.campusId,
+      organizationId: (incident as any).organizationId,
+      campusId: (incident as any).campusId,
       fcmTokens: { $exists: true, $not: { $size: 0 } } 
     });
     const guardUser = await UserModel.findById(user.id);
@@ -607,13 +623,72 @@ export const getSecurityPersonnel = async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Admin access required" });
     }
 
-    const guards = await UserModel.find({ role: "security_personnel" })
-      .select("_id username email phoneNumber createdAt")
+    // Tenant-aware query: scope results by organization/campus depending on requester's role
+    const query: any = { role: "security_personnel" };
+
+    if (isSuperAdmin(user.role)) {
+      // super_admin can optionally filter via query params
+      if (req.query.organizationId) query.organizationId = req.query.organizationId;
+      if (req.query.campusId) query.campusId = req.query.campusId;
+    } else if (user.role === "organization_owner") {
+      // Org owners see guards under their organization
+      query.organizationId = user.organizationId;
+    } else {
+      // Campus-level admins and security incharges should only see guards in their campus
+      query.organizationId = user.organizationId;
+      query.campusId = user.campusId;
+    }
+
+    const guards = await UserModel.find(query)
+      .select("_id username email phoneNumber createdAt campusId organizationId")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({ success: true, data: guards });
   } catch (error: any) {
     console.error("Get Security Personnel Error:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch security personnel" });
+  }
+};
+
+// @desc    Get assignment responses from security personnel (for admins/security incharge)
+// @route   GET /api/incidents/assignment-responses
+// @access  Private (Admin-like roles)
+export const getAssignmentResponses = async (req: Request, res: Response) => {
+  console.log("getAssignmentResponses route hit");
+  try {
+    const user = req.user;
+    if (!user || !isAdminLike(user.role)) {
+      return res.status(403).json({ success: false, message: "Admin access required" });
+    }
+
+    // Base query: only incidents where a guard has responded
+    const query: any = { assignmentResponse: { $exists: true, $ne: null } };
+
+    // Tenant scoping
+    if (isSuperAdmin(user.role)) {
+      if (req.query.organizationId) query.organizationId = req.query.organizationId;
+      if (req.query.campusId) query.campusId = req.query.campusId;
+    } else if (isOrganizationOwner(user.role)) {
+      query.organizationId = user.organizationId;
+    } else {
+      // campus_admin, security_incharge: scoped to their campus
+      query.organizationId = user.organizationId;
+      query.campusId = user.campusId;
+    }
+
+    // Optional filters: assigned guard id
+    if (req.query.guardId) {
+      query.assigned_to = req.query.guardId;
+    }
+
+    const responses = await IncidentModel.find(query)
+      .populate("assigned_to", "username email phoneNumber campusId organizationId")
+      .populate("reporter_id", "username email")
+      .sort({ updatedAt: -1 });
+
+    return res.status(200).json({ success: true, data: responses });
+  } catch (error: any) {
+    console.error("Get Assignment Responses Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch assignment responses" });
   }
 };

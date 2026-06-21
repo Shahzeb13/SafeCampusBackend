@@ -613,3 +613,53 @@ export const sendLeadEmail = async (leadData: { name: string; email: string; ins
         console.error(`❌ [EmailService] Unexpected error in sendLeadEmail — [${classified.code}] ${classified.message}`);
     }
 };
+
+export const sendStatusUpdateEmail = async (
+    recipientEmail: string,
+    recipientName: string,
+    data: { id: string; title?: string; type?: string; status: string; reason?: string },
+    isSOS: boolean = false
+) => {
+    const status = data.status || 'updated';
+    const subject = isSOS ? `SOS Update: status changed to ${status}` : `Incident Update: status changed to ${status}`;
+
+    const htmlContent = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+            <div style="background-color: #111827; padding: 28px 20px; text-align: center; color: #fff;">
+                <h1 style="margin:0; font-size:20px;">${isSOS ? 'SOS Status Update' : 'Incident Status Update'}</h1>
+                <p style="margin:6px 0 0 0; opacity:0.9;">Status: <strong style="text-transform:capitalize">${status}</strong></p>
+            </div>
+
+            <div style="padding:20px; color:#111827; line-height:1.5;">
+                <h2 style="font-size:16px; margin:0 0 8px 0;">Hello ${recipientName || 'User'},</h2>
+                <p style="margin:0 0 12px 0;">This is an update regarding your ${isSOS ? 'SOS alert' : 'incident report'}${data.title ? `: "${data.title}"` : ''}.</p>
+
+                <div style="background:#f8fafc;border-left:4px solid #6366f1;padding:12px;border-radius:6px;margin-bottom:12px;">
+                    <p style="margin:0;"><strong>ID:</strong> ${data.id}</p>
+                    ${data.title ? `<p style="margin:6px 0 0 0;"><strong>Title:</strong> ${data.title}</p>` : ''}
+                    <p style="margin:6px 0 0 0;"><strong>Current Status:</strong> ${status}</p>
+                    ${data.reason ? `<p style="margin:6px 0 0 0;"><strong>Note:</strong> ${data.reason}</p>` : ''}
+                </div>
+
+                <p style="margin:0 0 10px 0; color:#374151;">If you have any questions or need further assistance, reply to this message or contact campus security.</p>
+            </div>
+
+            <div style="background:#f3f4f6;padding:16px;text-align:center;color:#6b7280;font-size:12px;">
+                <div>© 2026 SafeCampus Inc. | Your Campus Security Partner</div>
+            </div>
+        </div>
+    `;
+
+    try {
+        const info = await transporter.sendMail({
+            from: `"${process.env.MAIL_FROM_NAME || 'SafeCampus'}" <${process.env.MAIL_FROM_ADDRESS}>`,
+            to: recipientEmail,
+            subject,
+            html: htmlContent,
+        });
+        console.log(`✅ [EmailService] Status update email sent to ${recipientEmail} (messageId: ${info.messageId})`);
+    } catch (error) {
+        const classified = classifyMailError(error, recipientEmail, 'StatusUpdate');
+        console.error(`❌ [EmailService] Failed to send status update email to ${recipientEmail} — [${classified.code}] ${classified.message}`);
+    }
+};

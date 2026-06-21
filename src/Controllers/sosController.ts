@@ -6,6 +6,7 @@ import { isValidSOSRequest } from '../Types/TypePredicates/isValidSOSRequest.js'
 import { sendNotificationToUser } from '../Utils/notificationService.js';
 import { broadcastEmergencyAlert } from '../Utils/smsService.js';
 import { sendSOSAssignmentEmail, sendRejectionEmail } from '../Utils/emailService.js';
+import { sendStatusUpdateEmail } from '../Utils/emailService.js';
 import { isAdminLike, isSuperAdmin } from '../Types/TypePredicates/roleHelpers.js';
 import { getDistanceMeters } from '../Utils/geofence.js';
 
@@ -196,6 +197,19 @@ export const updateSOSStatus = async (req: Request, res: Response) => {
           },
           false // It's for the student
         );
+      }
+    }
+
+    // Also send a generic status update email (uses simpler template)
+    if (user && user.email) {
+      try {
+        await sendStatusUpdateEmail(user.email, user.username, {
+          id: updatedSOS._id.toString(),
+          status,
+          reason: rejectionReason
+        }, true);
+      } catch (err) {
+        console.error('Failed to send SOS status update email:', err);
       }
     }
 
