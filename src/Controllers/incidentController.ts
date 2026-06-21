@@ -182,7 +182,28 @@ export const createIncident = async (req: Request, res: Response) => {
 
     const savedIncident = await newIncident.save();
 
-      //delete files media from server after saving it in database
+    // Send acknowledgement email to the reporter (non-blocking)
+    try {
+      const reporter = await UserModel.findById(user.id);
+      if (reporter && (reporter as any).email) {
+        await sendStatusUpdateEmail(
+          (reporter as any).email,
+          (reporter as any).username || '',
+          {
+            id: savedIncident._id.toString(),
+            title: savedIncident.title,
+            type: savedIncident.incidentType,
+            status: 'reported',
+            reason: 'Your incident has been received and acknowledged. Stay tuned and keep your internet connection on to receive updates.'
+          },
+          false
+        );
+      }
+    } catch (emailErr) {
+      console.error('Failed to send incident acknowledgement email:', emailErr);
+    }
+
+    //delete files media from server after saving it in database
     res.status(201).json(savedIncident);
   } catch (error: any) {
     console.error("Error creating incident:", error);
@@ -336,6 +357,22 @@ export const updateIncidentStatus = async (req: Request, res: Response) => {
       });
     }
 
+    const validStatuses = ["pending", "under_review", "assigned", "resolved", "rejected"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid incident status"
+      });
+    }
+
+    const statusEmailMessage: Record<string, string> = {
+      pending: "Your incident is still pending review. We will update you as soon as the team takes action.",
+      under_review: "Your incident is currently under review by the safety team.",
+      assigned: "Your incident has been assigned to a security team member and help is on the way.",
+      resolved: "Your incident has been resolved. Thank you for your patience and cooperation.",
+      rejected: "Your incident report was reviewed and rejected. Please contact campus security for more details."
+    };
+
     // Find and update the incident
     const updatedIncident = await IncidentModel.findByIdAndUpdate(
       incidentId,
@@ -375,16 +412,21 @@ export const updateIncidentStatus = async (req: Request, res: Response) => {
       );
     }
 
-    // Send status update email for other statuses (acknowledged/responding/resolved)
+    // Send status update email for other statuses
     if (reporter && reporter.email && status !== 'rejected') {
       try {
-        await sendStatusUpdateEmail(reporter.email, reporter.username, {
-          id: updatedIncident._id.toString(),
-          title: updatedIncident.title,
-          type: updatedIncident.incidentType,
-          status,
-          reason: rejectionReason
-        }, false);
+        await sendStatusUpdateEmail(
+          reporter.email,
+          reporter.username,
+          {
+            id: updatedIncident._id.toString(),
+            title: updatedIncident.title,
+            type: updatedIncident.incidentType,
+            status,
+            reason: rejectionReason || statusEmailMessage[status]
+          },
+          false
+        );
       } catch (err) {
         console.error('Failed to send incident status email:', err);
       }
@@ -536,6 +578,38 @@ export const respondToAssignment = async (req: Request, res: Response) => {
     }
 
     await incident.save();
+
+    // Notify security incharge by email about the guard's response
+    try {
+      const securityIncharge = await UserModel.findOne({
+        role: 'security_incharge',
+        organizationId: (incident as any).organizationId,
+        campusId: (incident as any).campusId,
+      });
+
+      if (securityIncharge && securityIncharge.email) {
+        const responseMessage = response === 'completed'
+          ? 'has completed the assigned incident response.'
+          : response === 'responding'
+            ? 'is currently responding to the assigned incident.'
+            : 'is unavailable for the assigned incident.';
+
+        await sendStatusUpdateEmail(
+          securityIncharge.email,
+          securityIncharge.username || 'Security Incharge',
+          {
+            id: incident._id.toString(),
+            title: incident.title,
+            type: incident.incidentType,
+            status: response,
+            reason: `${guardName} ${responseMessage}`
+          },
+          false
+        );
+      }
+    } catch (emailErr) {
+      console.error('Failed to send incident response email to security incharge:', emailErr);
+    }
 
     // Notify admin about the guard's response via broadcast to all admins
     const admins = await UserModel.find({ 

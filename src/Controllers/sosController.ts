@@ -98,6 +98,38 @@ export const createSOS = async (req: Request, res: Response) => {
       ).catch(err => console.error("Broadcast failed:", err));
     }
 
+    // --- EMAIL: Acknowledgement to user (non-blocking) ---
+    if (user && (user as any).email) {
+      sendStatusUpdateEmail(
+        (user as any).email,
+        (user as any).username || '',
+        {
+          id: newSOS._id.toString(),
+          title: 'SOS Alert Received',
+          type: 'sos',
+          status: 'active',
+          reason: 'Your SOS alert has been received and acknowledged. Stay where you are and keep your internet connection on to receive updates.'
+        },
+        true
+      ).catch((err) => console.error('Failed to send SOS acknowledgement email to user:', err));
+    }
+
+    // --- EMAIL: Notify campus contact if configured (non-blocking) ---
+    if (campus && (campus as any).contactEmail) {
+      sendStatusUpdateEmail(
+        (campus as any).contactEmail,
+        (campus as any).name || 'Campus Contact',
+        {
+          id: newSOS._id.toString(),
+          title: `SOS Alert: ${user?.username || 'User'}`,
+          type: 'sos',
+          status: 'active',
+          reason: `SOS triggered by ${user?.username || 'a user'} at ${location.latitude}, ${location.longitude}`
+        },
+        true
+      ).catch((err) => console.error('Failed to send SOS notification to campus contact:', err));
+    }
+
     return res.status(201).json({
       success: true,
       message: 'SOS alert triggered successfully',
@@ -281,7 +313,11 @@ export const assignSOS = async (req: Request, res: Response) => {
       status: "responding"
     };
 
-    await sendSOSAssignmentEmail(guard.email, guard.username, sosInfo, true);
+    // 1b. Email the assigned guard
+    if (guard.email) {
+      sendSOSAssignmentEmail(guard.email, guard.username, sosInfo, true)
+        .catch((err) => console.error('Failed to send SOS assignment email to guard:', err));
+    }
 
     // 2. Notify Student (FCM + Email)
     if (student.fcmTokens && student.fcmTokens.length > 0) {
@@ -292,8 +328,10 @@ export const assignSOS = async (req: Request, res: Response) => {
       });
     }
 
+    // 2b. Email the reporter/student
     if (student.email) {
-      await sendSOSAssignmentEmail(student.email, student.username, sosInfo, false);
+      sendSOSAssignmentEmail(student.email, student.username, sosInfo, false)
+        .catch((err) => console.error('Failed to send SOS assignment email to reporter:', err));
     }
 
     return res.status(200).json({
@@ -339,6 +377,38 @@ export const respondToSOSAssignment = async (req: Request, res: Response) => {
     }
 
     await sos.save();
+
+    // Notify security incharge by email about the guard's response
+    try {
+      const securityIncharge = await UserModel.findOne({
+        role: 'security_incharge',
+        organizationId: sos.organizationId,
+        campusId: sos.campusId,
+      });
+
+      if (securityIncharge && securityIncharge.email) {
+        const responseMessage = response === 'completed'
+          ? 'has completed the assigned SOS response.'
+          : response === 'responding'
+            ? 'is currently responding to the assigned SOS.'
+            : 'is unavailable for the assigned SOS.';
+
+        await sendStatusUpdateEmail(
+          securityIncharge.email,
+          securityIncharge.username || 'Security Incharge',
+          {
+            id: sos._id.toString(),
+            title: 'SOS Assignment Response',
+            type: 'sos',
+            status: response,
+            reason: `${guard.username || 'A security guard'} ${responseMessage}`
+          },
+          true
+        );
+      }
+    } catch (emailErr) {
+      console.error('Failed to send SOS response email to security incharge:', emailErr);
+    }
 
     return res.status(200).json({ success: true, data: sos });
   } catch (error: any) {
