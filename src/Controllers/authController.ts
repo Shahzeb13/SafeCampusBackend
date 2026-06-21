@@ -29,6 +29,12 @@ export const registerUser = async (req: Request, res: Response): Promise<Respons
             organizationId, campusId
         } = body;
 
+        const xClient = req.headers['x-client'];
+        if(xClient === "mobile"){
+            return res.status(401).json({success: false, message:"Dear User, Direct registration is disabled by Administations for now"});
+            
+        }
+
         const isUsernameValid = validateUsername(username);
         if (!isUsernameValid.ok) {
             return res.status(400).json({ success: false, message: isUsernameValid.reason })
