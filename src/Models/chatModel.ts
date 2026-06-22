@@ -1,39 +1,28 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
-/**
- * Message Sub-Schema
- */
-interface IMessage {
+export interface IConversation extends Document {
+  organizationId: mongoose.Types.ObjectId;
+  campusId: mongoose.Types.ObjectId;
+  participants: mongoose.Types.ObjectId[];
+  lastMessage: mongoose.Types.ObjectId | null;
+  lastMessageAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMessage extends Document {
+  conversationId: mongoose.Types.ObjectId;
   senderId: mongoose.Types.ObjectId;
   senderName: string;
   message: string;
-  timestamp: Date;
-}
-
-const messageSchema = new Schema<IMessage>({
-  senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  senderName: { type: String, required: true },
-  message: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-});
-
-/**
- * Chat Conversation Schema (General Collection)
- */
-export interface IChat extends Document {
-  // SaaS multi-tenant
-  organizationId: mongoose.Types.ObjectId; // TODO: backfill old chats via scripts/backfillOrganizationId.ts
-  campusId: mongoose.Types.ObjectId;
-  participants: mongoose.Types.ObjectId[];
-  messages: IMessage[];
-  lastMessage: string;
-  updatedAt: Date;
+  isRead: boolean;
+  readAt: Date | null;
   createdAt: Date;
+  updatedAt: Date;
 }
 
-const chatSchema = new Schema<IChat>(
+const conversationSchema = new Schema<IConversation>(
   {
-    // SaaS multi-tenant
     organizationId: {
       type: Schema.Types.ObjectId,
       ref: 'Organization',
@@ -47,21 +36,39 @@ const chatSchema = new Schema<IChat>(
       index: true,
     },
     participants: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
-    messages: [messageSchema],
-    lastMessage: { type: String },
+    lastMessage: { type: Schema.Types.ObjectId, ref: 'Message', default: null },
+    lastMessageAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
 
-// Composite tenant-safe indexes
-chatSchema.index({ organizationId: 1, campusId: 1 });
-chatSchema.index({ participants: 1 });
+conversationSchema.index({ organizationId: 1, campusId: 1 });
+conversationSchema.index({ participants: 1 });
+conversationSchema.index({ lastMessageAt: -1 });
 
-const ChatModel: Model<IChat> = mongoose.model<IChat>('Chat', chatSchema);
+const messageSchema = new Schema<IMessage>(
+  {
+    conversationId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Conversation',
+      required: true,
+      index: true,
+    },
+    senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    senderName: { type: String, required: true },
+    message: { type: String, required: true },
+    isRead: { type: Boolean, default: false, index: true },
+    readAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
 
-export default ChatModel;
+messageSchema.index({ conversationId: 1, createdAt: 1 });
 
+export const ConversationModel: Model<IConversation> =
+  mongoose.models.Conversation || mongoose.model<IConversation>('Conversation', conversationSchema);
 
-// Remember this
-// Give me conversation where I am a participant.
-// Then give me messages from that conversation.
+export const MessageModel: Model<IMessage> =
+  mongoose.models.Message || mongoose.model<IMessage>('Message', messageSchema);
+
+export default ConversationModel;

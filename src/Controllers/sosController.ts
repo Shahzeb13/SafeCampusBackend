@@ -401,7 +401,7 @@ export const respondToSOSAssignment = async (req: Request, res: Response) => {
             title: 'SOS Assignment Response',
             type: 'sos',
             status: response,
-            reason: `${guard.username || 'A security guard'} ${responseMessage}`
+            reason: `${(guard as any).username || 'A security guard'} ${responseMessage}`
           },
           true
         );

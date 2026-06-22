@@ -238,7 +238,7 @@ export const loginUser = async (req: Request, res: Response) => {
                 campusId: user.campusId,
                 avatar: user.avatar,
                 personalEmergencyContacts: user.personalEmergencyContacts || [],
-                // token: token,
+                token: token,
             });
         } else {
             res.status(401).json({ message: "Invalid email or password" });

@@ -544,6 +544,9 @@ export const respondToAssignment = async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: "Security personnel access required" });
     }
 
+    const guardUser = await UserModel.findById(user.id);
+    const guardName = guardUser?.username || "Security Guard";
+
     const { incidentId, response, note } = req.body;
 
     if (!incidentId || !response) {
@@ -618,8 +621,6 @@ export const respondToAssignment = async (req: Request, res: Response) => {
       campusId: (incident as any).campusId,
       fcmTokens: { $exists: true, $not: { $size: 0 } } 
     });
-    const guardUser = await UserModel.findById(user.id);
-    const guardName = guardUser?.username || "Security Guard";
 
     console.log(`📢 Notifying ${admins.length} admins about guard response: ${response}`);
 
